@@ -213,9 +213,9 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-wrap justify-center gap-6 max-w-[1200px] mx-auto px-4 overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1200px] mx-auto px-4">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow w-[320px] h-auto">
+            <Card key={item.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
@@ -244,11 +244,11 @@ export default function PhysicalItemsPage() {
                   })()}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 min-h-[80px]">
+              <CardContent className="flex flex-col flex-grow">
+                <p className="text-sm text-muted-foreground mb-4">
                   {item.description}
                 </p>
-                <div className="flex justify-between items-center text-sm">
+                <div className="mt-auto flex justify-between items-center text-sm">
                   <div className="text-muted-foreground w-[150px] overflow-hidden">
                     {(() => {
                       const config = getTokenConfigForItem(item.id);
