@@ -181,17 +181,19 @@ export default function PhysicalItemsPage() {
   
   return (
     <AdminLayout title="Physical Items">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
+      <div className="mb-6">
+        <div className="flex items-baseline gap-x-4 mb-2">
           <h2 className="text-lg font-semibold">Manage Physical Items</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground flex-1">
             Add, edit or remove physical items available for token redemption
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add New Item
-        </Button>
+        <div className="flex justify-end">
+          <Button onClick={() => setIsCreateOpen(true)} size="sm">
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+            Add New Item
+          </Button>
+        </div>
       </div>
       
       {isLoading ? (
