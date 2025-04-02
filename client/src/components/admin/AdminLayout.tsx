@@ -25,18 +25,6 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const { user, logoutMutation } = useAdmin();
   const { disconnectWallet } = useWallet();
   
-  // If user is not logged in, redirect to admin login page
-  if (!user) {
-    navigate("/admin/auth");
-    return null;
-  }
-  
-  // If user is not an admin, redirect to home
-  if (!user.isAdmin) {
-    navigate("/");
-    return null;
-  }
-  
   const handleLogout = () => {
     // First disconnect the wallet
     disconnectWallet();

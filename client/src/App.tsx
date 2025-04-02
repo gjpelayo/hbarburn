@@ -5,13 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { WalletContextProvider } from "./context/WalletContext";
 import { RedemptionContextProvider } from "./context/RedemptionContext";
 import { AdminProvider } from "./hooks/use-admin";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Shop from "@/pages/shop";
 import OrderTrackingPage from "@/pages/order-tracking";
 
 // Admin pages
-import AdminAuthPage from "@/pages/admin/auth-page";
 import AdminDashboard from "@/pages/admin/dashboard";
 import PhysicalItemsPage from "@/pages/admin/physical-items";
 import TokensPage from "@/pages/admin/tokens";
@@ -29,15 +29,56 @@ function Router() {
       <Route path="/track" component={OrderTrackingPage} />
       <Route path="/track/:orderId" component={OrderTrackingPage} />
       
-      {/* Admin Routes */}
-      <Route path="/admin/auth" component={AdminAuthPage} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/physical-items" component={PhysicalItemsPage} />
-      <Route path="/admin/tokens" component={TokensPage} />
-      <Route path="/admin/token-configurations" component={TokenConfigurationsPage} />
-      <Route path="/admin/redemptions" component={RedemptionsPage} />
-      <Route path="/admin/shops" component={ShopsPage} />
-      <Route path="/admin/payment-methods" component={PaymentMethodsPage} />
+      {/* Admin Routes - All protected by ProtectedRoute component */}
+      <Route path="/admin">
+        {() => (
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/physical-items">
+        {() => (
+          <ProtectedRoute>
+            <PhysicalItemsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/tokens">
+        {() => (
+          <ProtectedRoute>
+            <TokensPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/token-configurations">
+        {() => (
+          <ProtectedRoute>
+            <TokenConfigurationsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/redemptions">
+        {() => (
+          <ProtectedRoute>
+            <RedemptionsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/shops">
+        {() => (
+          <ProtectedRoute>
+            <ShopsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/payment-methods">
+        {() => (
+          <ProtectedRoute>
+            <PaymentMethodsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
       
       {/* 404 Route */}
       <Route component={NotFound} />

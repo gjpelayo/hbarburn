@@ -7,18 +7,7 @@ import { WalletConnectHeader } from "@/components/WalletConnectHeader";
 import { Button } from "@/components/ui/button";
 import { EducationalContent } from "@/components/EducationalContent";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, ShoppingBag, Lock, Link as LinkIcon, Copy } from "lucide-react";
+import { Loader2, ShoppingBag, Link as LinkIcon, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Shop {
@@ -33,10 +22,7 @@ interface Shop {
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, loginMutation } = useAdmin();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const { user } = useAdmin();
   const [isCopied, setIsCopied] = useState(false);
   
   // Fetch active shops
@@ -44,20 +30,6 @@ export default function Home() {
     queryKey: ["/api/shops"],
     // This will fail gracefully if the API endpoint doesn't exist yet
   });
-
-  // Handle admin login
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate(
-      { username, password },
-      {
-        onSuccess: () => {
-          setIsLoginOpen(false);
-          navigate("/admin");
-        }
-      }
-    );
-  };
 
   // Handle navigation to shop
   const goToShop = (shopId: string) => {
@@ -92,25 +64,14 @@ export default function Home() {
           </p>
           
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-            {user ? (
-              <Button 
-                onClick={() => navigate("/admin")}
-                size="lg"
-                className="px-8 gap-2"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Manage My Shop
-              </Button>
-            ) : (
-              <Button 
-                onClick={() => navigate("/admin")}
-                size="lg"
-                className="px-8 gap-2"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Setup Shop
-              </Button>
-            )}
+            <Button 
+              onClick={() => navigate("/admin")}
+              size="lg"
+              className="px-8 gap-2"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {user ? "Manage My Shop" : "Setup Shop"}
+            </Button>
           </div>
         </div>
         
