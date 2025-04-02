@@ -1,6 +1,7 @@
 import { useWallet } from "@/context/WalletContext";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { 
   Dialog,
   DialogContent,
@@ -14,20 +15,44 @@ export function WalletConnectHeader() {
   const { isConnected, accountId, connectWallet, disconnectWallet } = useWallet();
   const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
   const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false);
+  const [location, navigate] = useLocation();
   
   const handleConnectHashpack = async () => {
-    await connectWallet("hashpack");
-    setIsConnectDialogOpen(false);
+    try {
+      const success = await connectWallet("hashpack");
+      setIsConnectDialogOpen(false);
+      
+      // Redirect to admin dashboard if we're trying to access the admin area
+      if (success && (location.includes('/admin') || location === '/')) {
+        navigate('/admin');
+      }
+    } catch (error) {
+      console.error("Error connecting HashPack wallet:", error);
+    }
   };
   
   const handleConnectBlade = async () => {
-    await connectWallet("blade");
-    setIsConnectDialogOpen(false);
+    try {
+      const success = await connectWallet("blade");
+      setIsConnectDialogOpen(false);
+      
+      // Redirect to admin dashboard if we're trying to access the admin area
+      if (success && (location.includes('/admin') || location === '/')) {
+        navigate('/admin');
+      }
+    } catch (error) {
+      console.error("Error connecting Blade wallet:", error);
+    }
   };
   
   const handleDisconnect = () => {
     disconnectWallet();
     setIsDisconnectDialogOpen(false);
+    
+    // If on admin page, redirect to home
+    if (location.includes('/admin')) {
+      navigate('/');
+    }
   };
   
   return (
@@ -128,13 +153,25 @@ export function WalletConnectHeader() {
                       <div className="text-xs text-neutral-500 mb-1">Connected Account</div>
                       <div className="text-neutral-800 font-medium">{accountId}</div>
                     </div>
-                    <Button 
-                      onClick={handleDisconnect}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      Disconnect Wallet
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button 
+                        onClick={() => {
+                          setIsDisconnectDialogOpen(false);
+                          navigate('/admin');
+                        }}
+                        variant="default"
+                        className="w-full"
+                      >
+                        Go to Dashboard
+                      </Button>
+                      <Button 
+                        onClick={handleDisconnect}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        Disconnect Wallet
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
