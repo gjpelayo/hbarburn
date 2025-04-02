@@ -32,15 +32,18 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   const [accountId, setAccountId] = useState<string | null>(null);
   const [walletType, setWalletType] = useState<WalletType>(null);
   
+  // Define a query key that depends on the account ID
+  const tokensQueryKey = accountId ? ['/api/tokens', accountId] : ['/api/tokens'];
+  
   // Query to fetch tokens when account is connected
   const { 
     data: tokens = [], 
     isLoading,
     refetch: refetchTokens
   } = useQuery<Token[]>({
-    queryKey: accountId ? ['/api/tokens', accountId] : ['/api/tokens'],
-    queryFn: async ({ queryKey }) => {
-      if (!accountId) return [];
+    queryKey: tokensQueryKey,
+    queryFn: async () => {
+      if (!accountId) return [] as Token[];
       try {
         console.log('Fetching tokens with accountId:', accountId);
         const response = await apiRequest<Token[]>('GET', `/api/tokens?accountId=${accountId}`);
@@ -48,7 +51,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         return response;
       } catch (error) {
         console.error('Error fetching tokens:', error);
-        return [];
+        return [] as Token[];
       }
     },
     enabled: !!accountId,
@@ -62,7 +65,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         const hashpackAccount = localStorage.getItem("hashpack_account");
         if (hashpackAccount) {
           const reconnected = await connectHashpack();
-          if (reconnected.success) {
+          if (reconnected.success && reconnected.accountId) {
             setAccountId(reconnected.accountId);
             setWalletType("hashpack");
             return;
@@ -73,7 +76,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         const bladeAccount = localStorage.getItem("blade_account");
         if (bladeAccount) {
           const reconnected = await connectBlade();
-          if (reconnected.success) {
+          if (reconnected.success && reconnected.accountId) {
             setAccountId(reconnected.accountId);
             setWalletType("blade");
             return;
@@ -91,7 +94,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     try {
       if (type === "hashpack") {
         const result = await connectHashpack();
-        if (result.success) {
+        if (result.success && result.accountId) {
           setAccountId(result.accountId);
           setWalletType("hashpack");
           toast({
@@ -108,7 +111,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         }
       } else if (type === "blade") {
         const result = await connectBlade();
-        if (result.success) {
+        if (result.success && result.accountId) {
           setAccountId(result.accountId);
           setWalletType("blade");
           toast({
