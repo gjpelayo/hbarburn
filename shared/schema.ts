@@ -94,7 +94,11 @@ export const redemptions = pgTable("redemptions", {
   shippingInfo: json("shipping_info").notNull(),
   status: text("status").notNull().default("pending"),
   trackingNumber: text("tracking_number"),
+  trackingUrl: text("tracking_url"),
+  carrier: text("carrier"),
   notes: text("notes"),
+  fulfillmentUpdates: json("fulfillment_updates").default([]),
+  estimatedDelivery: timestamp("estimated_delivery", { mode: 'string' }),
   createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 });
@@ -125,11 +129,37 @@ export const insertRedemptionSchema = createInsertSchema(redemptions)
     shippingInfo: shippingInfoSchema,
   });
 
+// Define the order status enum
+export const OrderStatusEnum = [
+  "pending", // Initial state when order is created
+  "confirmed", // Transaction verified
+  "processing", // Order is being processed
+  "shipped", // Order has been shipped
+  "delivered", // Order has been delivered
+  "completed", // Order fulfilled successfully
+  "cancelled", // Order was cancelled
+  "refunded" // Order was refunded
+] as const;
+
+export const FulfillmentUpdateSchema = z.object({
+  status: z.enum(OrderStatusEnum),
+  timestamp: z.string().optional(), // ISO date string
+  message: z.string().optional(),
+  performedBy: z.string().optional(), // Username of admin who performed update
+});
+
+export type FulfillmentUpdate = z.infer<typeof FulfillmentUpdateSchema>;
+
 export const updateRedemptionSchema = z.object({
   transactionId: z.string().optional(),
-  status: z.enum(["pending", "processing", "shipped", "completed", "cancelled"]),
+  status: z.enum(OrderStatusEnum),
   trackingNumber: z.string().optional(),
+  trackingUrl: z.string().url().optional(),
+  carrier: z.string().optional(),
   notes: z.string().optional(),
+  estimatedDelivery: z.string().optional(), // ISO date string
+  fulfillmentUpdate: FulfillmentUpdateSchema.optional(), // Single update to add to the history
+  fulfillmentUpdates: z.array(FulfillmentUpdateSchema).optional(), // Replace entire history (admin only)
 });
 
 // Shops table

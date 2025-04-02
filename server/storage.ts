@@ -506,12 +506,26 @@ export class MemStorage implements IStorage {
       amount: data.amount,
       transactionId: null,
       trackingNumber: null,
+      trackingUrl: null,
+      carrier: null,
       notes: null,
       shippingInfo: data.shippingInfo,
       status: "pending",
+      fulfillmentUpdates: [],
+      estimatedDelivery: null,
       createdAt: now,
       updatedAt: now
     };
+    
+    // Add initial fulfillment update
+    const initialUpdate = {
+      status: "pending",
+      timestamp: now,
+      message: "Order received",
+      performedBy: "system"
+    };
+    
+    redemption.fulfillmentUpdates = [initialUpdate];
     
     this.redemptions.set(data.orderId, redemption);
     return redemption;
@@ -524,14 +538,41 @@ export class MemStorage implements IStorage {
       return undefined;
     }
     
+    const now = new Date().toISOString();
+    
+    // Handle the fulfillment update
+    let fulfillmentUpdates = redemption.fulfillmentUpdates || [];
+    
+    // If there's a new fulfillment update, add it to the history
+    if (data.fulfillmentUpdate) {
+      const newUpdate = {
+        ...data.fulfillmentUpdate,
+        timestamp: data.fulfillmentUpdate.timestamp || now
+      };
+      fulfillmentUpdates = [...fulfillmentUpdates, newUpdate];
+    } 
+    // If a complete replacement is provided (admin only), use that
+    else if (data.fulfillmentUpdates) {
+      fulfillmentUpdates = data.fulfillmentUpdates;
+    }
+    
+    // Ensure fulfillmentUpdates is an array
+    if (!Array.isArray(fulfillmentUpdates)) {
+      fulfillmentUpdates = [];
+    }
+    
     const updated: Redemption = {
       ...redemption,
       status: data.status,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      fulfillmentUpdates,
       // Only update these fields if they are provided
       ...(data.transactionId !== undefined && { transactionId: data.transactionId }),
       ...(data.trackingNumber !== undefined && { trackingNumber: data.trackingNumber }),
-      ...(data.notes !== undefined && { notes: data.notes })
+      ...(data.trackingUrl !== undefined && { trackingUrl: data.trackingUrl }),
+      ...(data.carrier !== undefined && { carrier: data.carrier }),
+      ...(data.notes !== undefined && { notes: data.notes }),
+      ...(data.estimatedDelivery !== undefined && { estimatedDelivery: data.estimatedDelivery })
     };
     
     this.redemptions.set(orderId, updated);

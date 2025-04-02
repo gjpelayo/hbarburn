@@ -481,6 +481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Redemption not found" });
       }
       
+      // Add admin info to the fulfillment update
+      if (validatedData.fulfillmentUpdate && req.session.user) {
+        validatedData.fulfillmentUpdate.performedBy = req.session.user.username;
+        validatedData.fulfillmentUpdate.timestamp = new Date().toISOString();
+      }
+      
       const updated = await storage.updateRedemption(orderId, validatedData);
       res.json(updated);
     } catch (error) {

@@ -8,6 +8,7 @@ import { AdminProvider } from "./hooks/use-admin";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Shop from "@/pages/shop";
+import OrderTrackingPage from "@/pages/order-tracking";
 
 // Admin pages
 import AdminAuthPage from "@/pages/admin/auth-page";
@@ -24,6 +25,8 @@ function Router() {
       {/* Public Routes */}
       <Route path="/" component={Home} />
       <Route path="/shop/:shopId" component={Shop} />
+      <Route path="/track" component={OrderTrackingPage} />
+      <Route path="/track/:orderId" component={OrderTrackingPage} />
       
       {/* Admin Routes */}
       <Route path="/admin/auth" component={AdminAuthPage} />
