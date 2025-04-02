@@ -4,116 +4,147 @@ import { useRedemption } from "@/context/RedemptionContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProgressSteps, Step } from "@/components/ui/progress-steps";
-import { ConnectWalletStep } from "@/components/steps/ConnectWalletStep";
-import { TokenSelectionStep } from "@/components/steps/TokenSelectionStep";
+import { PhysicalItemsGrid, PhysicalItem, PHYSICAL_ITEMS } from "@/components/PhysicalItemsGrid";
+import { WalletConnectHeader } from "@/components/WalletConnectHeader";
 import { ShippingStep } from "@/components/steps/ShippingStep";
 import { ConfirmationStep } from "@/components/steps/ConfirmationStep";
 import { TransactionProcessingStep } from "@/components/steps/TransactionProcessingStep";
 import { SuccessStep } from "@/components/steps/SuccessStep";
 import { EducationalContent } from "@/components/EducationalContent";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
-  const { isConnected } = useWallet();
+  const { isConnected, tokens } = useWallet();
   const { 
     currentStep, 
     setCurrentStep, 
+    setSelectedToken,
+    setBurnAmount,
     executeBurnTransaction, 
     resetRedemption 
   } = useRedemption();
   
+  const [selectedPhysicalItem, setSelectedPhysicalItem] = useState<PhysicalItem | null>(null);
+  
+  // Update the steps to reflect our new flow
   const steps: Step[] = [
-    { id: 1, name: "Connect", status: currentStep === 1 ? "current" : currentStep > 1 ? "complete" : "upcoming" },
-    { id: 2, name: "Select Token", status: currentStep === 2 ? "current" : currentStep > 2 ? "complete" : "upcoming" },
-    { id: 3, name: "Shipping", status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming" },
-    { id: 4, name: "Confirm", status: currentStep === 4 ? "current" : currentStep > 4 ? "complete" : "upcoming" }
+    { id: 1, name: "Select Item", status: currentStep === 1 ? "current" : currentStep > 1 ? "complete" : "upcoming" },
+    { id: 2, name: "Shipping", status: currentStep === 2 ? "current" : currentStep > 2 ? "complete" : "upcoming" },
+    { id: 3, name: "Confirm", status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming" }
   ];
   
-  // Automatically move to token selection when wallet is connected
-  useEffect(() => {
-    if (isConnected && currentStep === 1) {
-      setCurrentStep(2);
-    }
-  }, [isConnected, currentStep, setCurrentStep]);
-  
-  const handleContinueToShipping = () => {
-    setCurrentStep(3);
+  const handlePhysicalItemSelect = (item: PhysicalItem) => {
+    setSelectedPhysicalItem(item);
   };
   
-  const handleBackToTokenSelection = () => {
-    setCurrentStep(2);
+  const handleProceedToShipping = () => {
+    if (!selectedPhysicalItem || !isConnected) return;
+    
+    // Find the matching token for the selected physical item
+    const token = tokens.find(t => t.tokenId === selectedPhysicalItem.tokenId);
+    
+    if (token) {
+      // Set the token and burn amount in the redemption context
+      setSelectedToken(token);
+      setBurnAmount(selectedPhysicalItem.tokenCost);
+      
+      // Move to shipping step
+      setCurrentStep(2);
+    }
+  };
+  
+  const handleBackToItems = () => {
+    setCurrentStep(1);
   };
   
   const handleContinueToConfirmation = () => {
-    setCurrentStep(4);
-  };
-  
-  const handleBackToShipping = () => {
     setCurrentStep(3);
   };
   
+  const handleBackToShipping = () => {
+    setCurrentStep(2);
+  };
+  
   const handleBurn = async () => {
-    setCurrentStep(5); // Processing step
+    setCurrentStep(4); // Processing step
     await executeBurnTransaction();
   };
   
   const handleTransactionComplete = () => {
-    setCurrentStep(6); // Success step
+    setCurrentStep(5); // Success step
   };
   
   const handleRedeemMore = () => {
     resetRedemption();
+    setSelectedPhysicalItem(null);
     setCurrentStep(1);
   };
   
   return (
     <>
+      <WalletConnectHeader />
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Message */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2">Burn Tokens, Redeem Physical Goods</h1>
-          <p className="text-neutral-500 max-w-2xl mx-auto">Connect your wallet to burn Hedera tokens and redeem them for physical products shipped to your address.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2">Physical Goods Redemption</h1>
+          <p className="text-neutral-500 max-w-2xl mx-auto">Browse items, connect your wallet, and redeem physical products by burning your Hedera tokens.</p>
         </div>
         
-        {/* Progress Steps - Only show for steps 1-4 */}
-        {currentStep <= 4 && <ProgressSteps steps={steps} />}
+        {/* Progress Steps - Only show for steps 2-4 (after item selection) */}
+        {currentStep >= 2 && currentStep <= 3 && <ProgressSteps steps={steps} />}
         
         {/* Step components */}
-        {currentStep === 1 && <ConnectWalletStep />}
-        
-        {currentStep === 2 && (
-          <TokenSelectionStep onContinue={handleContinueToShipping} />
+        {currentStep === 1 && (
+          <>
+            <PhysicalItemsGrid onItemSelect={handlePhysicalItemSelect} />
+            
+            <div className="mt-8 flex justify-center">
+              <Button 
+                onClick={handleProceedToShipping}
+                disabled={!selectedPhysicalItem || !isConnected}
+                size="lg"
+                className="px-8"
+              >
+                {!isConnected 
+                  ? "Connect Wallet to Continue"
+                  : !selectedPhysicalItem 
+                  ? "Select an Item to Continue" 
+                  : "Continue to Shipping"}
+              </Button>
+            </div>
+          </>
         )}
         
-        {currentStep === 3 && (
+        {currentStep === 2 && (
           <ShippingStep 
-            onBack={handleBackToTokenSelection} 
+            onBack={handleBackToItems} 
             onContinue={handleContinueToConfirmation} 
           />
         )}
         
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <ConfirmationStep 
             onBack={handleBackToShipping} 
             onBurn={handleBurn} 
           />
         )}
         
-        {currentStep === 5 && (
+        {currentStep === 4 && (
           <TransactionProcessingStep 
             onComplete={handleTransactionComplete} 
           />
         )}
         
-        {currentStep === 6 && (
+        {currentStep === 5 && (
           <SuccessStep 
             onRedeemMore={handleRedeemMore} 
           />
         )}
         
-        {/* Educational Content - Show only on first steps */}
-        {currentStep <= 3 && <EducationalContent />}
+        {/* Educational Content - Show only on initial item selection page */}
+        {currentStep === 1 && <EducationalContent />}
       </main>
       
       <Footer />
