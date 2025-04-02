@@ -79,7 +79,7 @@ export default function AdminDashboard() {
       </div>
       
       <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Recent Redemptions</CardTitle>
           </CardHeader>
@@ -88,8 +88,8 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 {redemptions.slice(0, 5).map((redemption) => (
                   <div key={redemption.orderId} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-center">
-                      <div>
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <div className="min-w-0">
                         <div className="font-medium">Order #{redemption.orderId.substring(0, 8)}</div>
                         <div className="text-sm text-muted-foreground">
                           Account: {redemption.accountId.substring(0, 8)}...
@@ -108,8 +108,10 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                     </div>
-                    <div className="text-sm mt-1">
-                      {redemption.tokenId} → {redemption.amount} tokens burned
+                    <div className="text-sm mt-1 break-words">
+                      <span className="inline-block max-w-full overflow-hidden text-ellipsis">
+                        {redemption.tokenId} → {redemption.amount} tokens burned
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -122,7 +124,7 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Physical Items Available</CardTitle>
           </CardHeader>
@@ -132,20 +134,25 @@ export default function AdminDashboard() {
                 {physicalItems.slice(0, 5).map((item) => (
                   <div key={item.id} className="flex items-center gap-3 border rounded-lg p-3">
                     {item.imageUrl && (
-                      <div className="w-12 h-12 rounded overflow-hidden border">
+                      <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden border">
                         <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                     )}
-                    <div className="flex-1">
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-muted-foreground truncate max-w-xs">
-                        {item.description.length > 60 
-                          ? `${item.description.substring(0, 60)}...` 
-                          : item.description}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{item.name}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {item.description ? (
+                          item.description.length > 40 
+                            ? `${item.description.substring(0, 40)}...` 
+                            : item.description
+                        ) : "No description"}
                       </div>
                     </div>
-                    <div className="text-sm font-medium">
-                      {item.tokenCost} <span className="text-xs text-muted-foreground">{item.tokenSymbol}</span>
+                    <div className="text-sm font-medium whitespace-nowrap flex-shrink-0">
+                      {/* Token cost and symbol would be added from token configurations */}
+                      {(item as any).tokenCost && (
+                        <>{(item as any).tokenCost} <span className="text-xs text-muted-foreground">{(item as any).tokenSymbol}</span></>
+                      )}
                     </div>
                   </div>
                 ))}

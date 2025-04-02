@@ -189,8 +189,10 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           {/* We can add additional header controls here if needed */}
         </header>
         
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          {children}
+        <main className="flex-1 overflow-auto p-6 bg-muted/30 max-w-full">
+          <div className="max-w-[1200px] mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
