@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,11 +14,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Define the shop type
 interface Shop {
@@ -219,6 +220,23 @@ export default function ShopsPage() {
     );
   }
 
+  const [filterStatus, setFilterStatus] = useState<'active' | 'inactive' | 'all'>('active');
+  
+  // Filter shops based on the selected status
+  const filteredShops = useMemo(() => {
+    if (!shops) return [];
+    
+    switch (filterStatus) {
+      case 'active':
+        return shops.filter(shop => shop.isActive);
+      case 'inactive':
+        return shops.filter(shop => !shop.isActive);
+      case 'all':
+      default:
+        return shops;
+    }
+  }, [shops, filterStatus]);
+
   return (
     <div className="container mx-auto my-8 space-y-6">
       <div className="flex justify-between items-center">
@@ -231,68 +249,45 @@ export default function ShopsPage() {
           New Shop
         </Button>
       </div>
+      
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-2">
+          <Label htmlFor="filter-status">Filter:</Label>
+          <Select
+            value={filterStatus}
+            onValueChange={(value) => setFilterStatus(value as 'active' | 'inactive' | 'all')}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active Shops</SelectItem>
+              <SelectItem value="inactive">Inactive Shops</SelectItem>
+              <SelectItem value="all">All Shops</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-      <Tabs defaultValue="active">
-        <TabsList className="mb-4">
-          <TabsTrigger value="active">Active Shops</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive Shops</TabsTrigger>
-          <TabsTrigger value="all">All Shops</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="active">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shops?.filter((shop: Shop) => shop.isActive).map((shop: Shop) => (
-              <ShopCard
-                key={shop.id}
-                shop={shop}
-                onEdit={() => handleEditClick(shop)}
-                onDelete={() => handleDeleteClick(shop)}
-              />
-            ))}
-            {shops?.filter((shop: Shop) => shop.isActive).length === 0 && (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No active shops found.</p>
-              </div>
-            )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredShops.map((shop: Shop) => (
+          <ShopCard
+            key={shop.id}
+            shop={shop}
+            onEdit={() => handleEditClick(shop)}
+            onDelete={() => handleDeleteClick(shop)}
+          />
+        ))}
+        {filteredShops.length === 0 && (
+          <div className="col-span-full text-center py-8">
+            <p className="text-gray-500">
+              {filterStatus === 'active' && 'No active shops found.'}
+              {filterStatus === 'inactive' && 'No inactive shops found.'}
+              {filterStatus === 'all' && 'No shops found.'}
+            </p>
           </div>
-        </TabsContent>
-
-        <TabsContent value="inactive">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shops?.filter((shop: Shop) => !shop.isActive).map((shop: Shop) => (
-              <ShopCard
-                key={shop.id}
-                shop={shop}
-                onEdit={() => handleEditClick(shop)}
-                onDelete={() => handleDeleteClick(shop)}
-              />
-            ))}
-            {shops?.filter((shop: Shop) => !shop.isActive).length === 0 && (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No inactive shops found.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="all">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shops?.map((shop: Shop) => (
-              <ShopCard
-                key={shop.id}
-                shop={shop}
-                onEdit={() => handleEditClick(shop)}
-                onDelete={() => handleDeleteClick(shop)}
-              />
-            ))}
-            {shops?.length === 0 && (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No shops found.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Create Shop Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
