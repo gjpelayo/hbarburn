@@ -163,6 +163,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Admin logout endpoint (same behavior as regular logout)
+  app.post("/api/admin/logout", (req, res) => {
+    // First logout with passport if authenticated
+    if (req.isAuthenticated()) {
+      req.logout((err) => {
+        if (err) {
+          console.error("Error logging out from passport:", err);
+        }
+        
+        // Then destroy the session
+        req.session.destroy((err) => {
+          if (err) {
+            return res.status(500).json({ message: "Logout failed" });
+          }
+          res.status(200).json({ message: "Logged out successfully" });
+        });
+      });
+    } else {
+      // Just destroy the session if not authenticated with passport
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.status(200).json({ message: "Logged out successfully" });
+      });
+    }
+  });
+  
   // Get current user session
   app.get("/api/auth/me", isAuthenticated, (req, res) => {
     if (!req.session.user) {

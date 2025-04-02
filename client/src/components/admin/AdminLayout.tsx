@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation, Link } from "wouter";
 import { useAdmin } from "@/hooks/use-admin";
+import { useWallet } from "@/context/WalletContext";
 import { Button } from "@/components/ui/button";
 import { 
   Package, 
@@ -22,6 +23,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children, title }: AdminLayoutProps) {
   const [location, navigate] = useLocation();
   const { user, logoutMutation } = useAdmin();
+  const { disconnectWallet } = useWallet();
   
   // If user is not logged in, redirect to admin login page
   if (!user) {
@@ -36,10 +38,20 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   }
   
   const handleLogout = () => {
+    // First disconnect the wallet
+    disconnectWallet();
+    
+    // Then log out from the admin system
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
-        navigate("/admin/auth");
+        // Navigate to the home page after logout
+        navigate("/");
       },
+      onError: () => {
+        // If there's an error with the admin logout, still navigate to home
+        // since the wallet has been disconnected
+        navigate("/");
+      }
     });
   };
   
@@ -83,10 +95,10 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           <div className="flex flex-col gap-2">
             <div className="flex items-center space-x-2">
               <div className="bg-primary/10 text-primary p-1.5 rounded-full">
-                <span className="font-medium text-xs">{user.username.charAt(0).toUpperCase()}</span>
+                <span className="font-medium text-xs">{(user?.username && typeof user.username === 'string') ? user.username.charAt(0).toUpperCase() : 'A'}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.username}</p>
+                <p className="text-sm font-medium truncate">{user?.username || 'Admin User'}</p>
                 <p className="text-xs text-muted-foreground truncate">Admin</p>
               </div>
             </div>
