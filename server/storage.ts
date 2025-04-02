@@ -315,13 +315,15 @@ export class MemStorage implements IStorage {
     const id = this.currentUserId++;
     const now = new Date().toISOString();
     
+    // For the purpose of this app, we're making all wallet users admins
+    // In a production app, you would likely have a whitelist of admin wallet addresses
     const user: User = { 
       id,
-      username: `wallet_${accountId.replace('.', '_')}`,
+      username: `wallet_${accountId.replace(/\./g, '_')}`,
       password: null, // No password for wallet users
       email: null,
       accountId,
-      isAdmin: false, // Wallet users are not admins by default
+      isAdmin: true, // Make wallet users admins by default for this demo
       createdAt: now,
       updatedAt: now
     };
