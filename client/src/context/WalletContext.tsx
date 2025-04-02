@@ -37,8 +37,20 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     data: tokens = [], 
     isLoading,
     refetch: refetchTokens
-  } = useQuery({
-    queryKey: accountId ? ['/api/tokens', accountId] : null,
+  } = useQuery<Token[]>({
+    queryKey: accountId ? ['/api/tokens', accountId] : ['/api/tokens'],
+    queryFn: async ({ queryKey }) => {
+      if (!accountId) return [];
+      try {
+        console.log('Fetching tokens with accountId:', accountId);
+        const response = await apiRequest<Token[]>('GET', `/api/tokens?accountId=${accountId}`);
+        console.log('API response for tokens:', response);
+        return response;
+      } catch (error) {
+        console.error('Error fetching tokens:', error);
+        return [];
+      }
+    },
     enabled: !!accountId,
   });
   

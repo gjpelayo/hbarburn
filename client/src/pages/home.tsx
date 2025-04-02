@@ -37,10 +37,16 @@ export default function Home() {
   };
   
   const handleProceedToShipping = () => {
-    if (!selectedPhysicalItem || !isConnected) return;
+    console.log('Proceed to shipping called', { selectedPhysicalItem, isConnected, tokens });
+    
+    if (!selectedPhysicalItem || !isConnected) {
+      console.log('Selected item or connection missing');
+      return;
+    }
     
     // Find the matching token for the selected physical item
     const token = tokens.find(t => t.tokenId === selectedPhysicalItem.tokenId);
+    console.log('Found token:', token);
     
     if (token) {
       // Set the token and burn amount in the redemption context
@@ -49,6 +55,8 @@ export default function Home() {
       
       // Move to shipping step
       setCurrentStep(2);
+    } else {
+      console.log('No matching token found for tokenId:', selectedPhysicalItem.tokenId);
     }
   };
   

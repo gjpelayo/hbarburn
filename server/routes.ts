@@ -9,7 +9,33 @@ import { nanoid } from "nanoid";
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   
-  // Get tokens by account ID
+  // Get all tokens (without accountId)
+  app.get("/api/tokens", async (req, res) => {
+    try {
+      // If query parameter accountId is passed, filter by it
+      const accountId = req.query.accountId as string;
+      
+      if (accountId) {
+        // Validate account ID format
+        if (!/^0\.0\.\d+$/.test(accountId)) {
+          return res.status(400).json({ message: "Invalid account ID format" });
+        }
+        
+        const tokens = await storage.getTokensByAccountId(accountId);
+        return res.json(tokens);
+      }
+      
+      // If no accountId, return all tokens (for demo purposes)
+      const defaultAccountId = "0.0.1234567";
+      const tokens = await storage.getTokensByAccountId(defaultAccountId);
+      res.json(tokens);
+    } catch (error) {
+      console.error("Error fetching tokens:", error);
+      res.status(500).json({ message: "Failed to fetch tokens" });
+    }
+  });
+  
+  // Get tokens by account ID (keep for backward compatibility)
   app.get("/api/tokens/:accountId", async (req, res) => {
     try {
       const { accountId } = req.params;
