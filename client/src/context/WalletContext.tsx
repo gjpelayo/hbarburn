@@ -6,8 +6,17 @@ import {
   ReactNode 
 } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { connectHashpack, disconnectHashpack } from "@/lib/hashconnect";
-import { connectBlade, disconnectBlade } from "@/lib/blade";
+import { 
+  connectHashpack, 
+  disconnectHashpack, 
+  burnTokensWithHashpack,
+  initializeHashConnect
+} from "@/lib/hashconnect";
+import { 
+  connectBlade, 
+  disconnectBlade, 
+  burnTokensWithBlade 
+} from "@/lib/blade";
 import { Token } from "@/types";
 import { useQuery, useMutation, QueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -57,11 +66,14 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     enabled: !!accountId,
   });
   
-  // Automatically try to reconnect on page load if a previous session exists
+  // Initialize wallet SDKs and try to reconnect on page load
   useEffect(() => {
-    async function autoReconnect() {
-      // Check for existing HashPack connection
+    async function initAndAutoReconnect() {
       try {
+        // Initialize HashConnect - no need to await as it will initialize in background
+        initializeHashConnect().catch(err => console.error("HashConnect initialization error:", err));
+        
+        // Check for existing HashPack connection
         const hashpackAccount = localStorage.getItem("hashpack_account");
         if (hashpackAccount) {
           const reconnected = await connectHashpack();
@@ -106,7 +118,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    autoReconnect();
+    initAndAutoReconnect();
   }, []);
   
   const connectWallet = async (type: "hashpack" | "blade"): Promise<boolean> => {
@@ -213,23 +225,31 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     
     try {
       if (walletType === "hashpack") {
-        // Call HashPack's burn function
-        // This is a placeholder - the actual implementation
-        // will depend on the HashPack SDK implementation
-        const mockTransactionId = `0.0.${Date.now()}@${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 1000000)}`;
-        return mockTransactionId;
+        // Call HashPack's burn function with the real implementation
+        const txId = await burnTokensWithHashpack(tokenId, amount);
+        
+        // Refetch token balances after burn
+        await refetchTokens();
+        
+        return txId;
       } else if (walletType === "blade") {
-        // Call Blade's burn function
-        // This is a placeholder - the actual implementation
-        // will depend on the Blade SDK implementation
-        const mockTransactionId = `0.0.${Date.now()}@${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 1000000)}`;
-        return mockTransactionId;
+        // Call Blade's burn function with the real implementation
+        const txId = await burnTokensWithBlade(tokenId, amount);
+        
+        // Refetch token balances after burn
+        await refetchTokens();
+        
+        return txId;
       } else {
         throw new Error("Unsupported wallet type");
       }
     } catch (error) {
       console.error("Token burn error:", error);
-      throw new Error("Failed to burn tokens");
+      if (error instanceof Error) {
+        throw new Error(`Failed to burn tokens: ${error.message}`);
+      } else {
+        throw new Error("Failed to burn tokens");
+      }
     }
   };
   

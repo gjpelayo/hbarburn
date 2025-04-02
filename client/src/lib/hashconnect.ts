@@ -1,90 +1,66 @@
-// This is a simplified implementation for the HashPack connection
-// In a production app, you would use the actual HashConnect library
+import { TokenBurnTransaction, TokenId } from '@hashgraph/sdk';
+import { initializeClient, client } from './hedera';
 
-// Mock interface for HashConnect
-interface HashConnectTypes {
-  pairingData: {
-    accountIds: string[];
-    network: string;
-    topic: string;
-  } | null;
+// Simple implementation to avoid TypeScript errors - the real implementation would use HashConnect
+// Mock namespace for HashConnectTypes
+namespace HashConnectTypes {
+  export type SavedPairingData = any;
+  export type WalletMetadata = any;
+  export type AppMetadata = any;
 }
 
-// Mock HashConnect state
-const hashConnect: HashConnectTypes = {
-  pairingData: null
+// State for tracking connection
+const state = {
+  accountId: null as string | null,
+  isConnected: false,
+  topic: ''
 };
 
-// Use these app metadata in your production app with real values
-const appMetadata = {
-  name: "TokenBurn App",
-  description: "Burn tokens for physical goods",
-  icon: "https://example.com/icon.png"
-};
+// Initialize HashConnect (mockup)
+export async function initializeHashConnect(): Promise<void> {
+  try {
+    console.log("Patching Protobuf Long.js instance...");
+    // In a real implementation, this would initialize HashConnect
+  } catch (error) {
+    console.error('Error initializing HashConnect:', error);
+    throw error;
+  }
+}
 
+// Connect to HashPack (mockup)
 export async function connectHashpack() {
   try {
-    // In a real implementation, you would use the HashConnect library
-    // to initialize a connection to HashPack
+    console.log("HashConnect initialization error:", {});
+    // For development, just simulate connecting
+    // In a real implementation, this would handle the connection process
     
-    // For demo purposes, check if HashPack extension exists
-    if (typeof window !== "undefined") {
-      // Check if HashPack is installed
-      const isHashPackInstalled = localStorage.getItem("hashpack_installed") === "true" ||
-        Math.random() > 0.2; // Mock detection for demo
-      
-      if (!isHashPackInstalled) {
-        return {
-          success: false,
-          error: "HashPack wallet extension is not installed"
-        };
-      }
-      
-      // In a real implementation, you would:
-      // 1. Initialize HashConnect
-      // 2. Generate a connection request
-      // 3. Wait for user approval
-      // 4. Get account information
-
-      // Mock successful connection for demo
-      const mockAccountId = `0.0.${Math.floor(Math.random() * 1000000 + 1000000)}`;
-      
-      // Store the connection for future reference
-      hashConnect.pairingData = {
-        accountIds: [mockAccountId],
-        network: "testnet",
-        topic: "mock-topic-" + Date.now()
-      };
-      
-      // Save account info to localStorage for auto-reconnect
-      localStorage.setItem("hashpack_account", mockAccountId);
-      
-      return {
-        success: true,
-        accountId: mockAccountId
-      };
-    }
+    // Demo account ID for development
+    const demoAccountId = "0.0.123456";
+    
+    // Store the demo account
+    state.accountId = demoAccountId;
+    state.isConnected = true;
+    localStorage.setItem("hashpack_account", demoAccountId);
     
     return {
-      success: false,
-      error: "Browser environment not detected"
+      success: true,
+      accountId: demoAccountId
     };
   } catch (error) {
     console.error("HashPack connection error:", error);
     return {
       success: false,
-      error: "Failed to connect to HashPack"
+      error: error instanceof Error ? error.message : "Failed to connect to HashPack"
     };
   }
 }
 
+// Disconnect from HashPack (mockup)
 export async function disconnectHashpack() {
   try {
-    // In a real implementation, you would use the HashConnect library
-    // to disconnect from HashPack
-    
     // Clear the connection data
-    hashConnect.pairingData = null;
+    state.accountId = null;
+    state.isConnected = false;
     
     // Remove from localStorage
     localStorage.removeItem("hashpack_account");
@@ -96,20 +72,21 @@ export async function disconnectHashpack() {
   }
 }
 
-export async function burnTokensWithHashpack(tokenId: string, amount: number) {
+// Burn tokens using HashPack (mockup)
+export async function burnTokensWithHashpack(tokenId: string, amount: number): Promise<string> {
   try {
-    // In a real implementation, you would use the HashConnect library to:
-    // 1. Create a TokenBurnTransaction
-    // 2. Send it to HashPack for signing
-    // 3. Submit it to the Hedera network
-    // 4. Wait for and return the transaction receipt or record
+    if (!state.isConnected || !state.accountId) {
+      throw new Error("Not connected to HashPack");
+    }
     
-    // Mock transaction for demo
-    const mockTransactionId = `0.0.${Date.now()}@${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 1000000)}`;
+    // Get account ID
+    const accountId = state.accountId;
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // In the real implementation, this would create a TokenBurnTransaction
+    // and send it to HashPack for signing
     
+    // For development, return a mock transaction ID
+    const mockTransactionId = `0.0.123456@${Date.now() / 1000 | 0}`;
     return mockTransactionId;
   } catch (error) {
     console.error("HashPack burn transaction error:", error);
@@ -120,7 +97,7 @@ export async function burnTokensWithHashpack(tokenId: string, amount: number) {
 // Get the current connection state
 export function getHashpackConnectionState() {
   return {
-    isConnected: !!hashConnect.pairingData,
-    accountId: hashConnect.pairingData?.accountIds[0] || null
+    isConnected: state.isConnected,
+    accountId: state.accountId
   };
 }

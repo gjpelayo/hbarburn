@@ -1,78 +1,48 @@
-// This is a simplified implementation for the Blade Wallet connection
-// In a production app, you would use the actual Blade Wallet SDK
+import { TokenId, TokenBurnTransaction } from '@hashgraph/sdk';
+import { client, initializeClient } from './hedera';
 
-// Mock interface for Blade Wallet
-interface BladeWalletTypes {
-  accountId: string | null;
-  isConnected: boolean;
-}
+// Mock type for BladeConnector
+type BladeConnector = any;
 
-// Mock Blade Wallet state
-const bladeWallet: BladeWalletTypes = {
-  accountId: null,
+// State for tracking connection
+const state = {
+  accountId: null as string | null,
   isConnected: false
 };
 
+// Connect to Blade Wallet (mockup)
 export async function connectBlade() {
   try {
-    // In a real implementation, you would use the Blade Wallet SDK
-    // to initialize a connection to Blade Wallet
+    // For development, just simulate connecting
+    // In a real implementation, this would handle the connection process
     
-    // For demo purposes, check if Blade extension exists
-    if (typeof window !== "undefined") {
-      // Check if Blade is installed
-      const isBladeInstalled = localStorage.getItem("blade_installed") === "true" ||
-        Math.random() > 0.2; // Mock detection for demo
-      
-      if (!isBladeInstalled) {
-        return {
-          success: false,
-          error: "Blade wallet extension is not installed"
-        };
-      }
-      
-      // In a real implementation, you would:
-      // 1. Initialize Blade connection
-      // 2. Request user approval
-      // 3. Get account information
-
-      // Mock successful connection for demo
-      const mockAccountId = `0.0.${Math.floor(Math.random() * 1000000 + 2000000)}`;
-      
-      // Store the connection state
-      bladeWallet.accountId = mockAccountId;
-      bladeWallet.isConnected = true;
-      
-      // Save account info to localStorage for auto-reconnect
-      localStorage.setItem("blade_account", mockAccountId);
-      
-      return {
-        success: true,
-        accountId: mockAccountId
-      };
-    }
+    // Demo account ID for development
+    const demoAccountId = "0.0.654321";
+    
+    // Store the demo account
+    state.accountId = demoAccountId;
+    state.isConnected = true;
+    localStorage.setItem("blade_account", demoAccountId);
     
     return {
-      success: false,
-      error: "Browser environment not detected"
+      success: true,
+      accountId: demoAccountId
     };
   } catch (error) {
     console.error("Blade connection error:", error);
     return {
       success: false,
-      error: "Failed to connect to Blade wallet"
+      error: error instanceof Error ? error.message : "Failed to connect to Blade wallet"
     };
   }
 }
 
+// Disconnect from Blade Wallet (mockup)
 export async function disconnectBlade() {
   try {
-    // In a real implementation, you would use the Blade Wallet SDK
-    // to disconnect from Blade Wallet
-    
     // Clear the connection data
-    bladeWallet.accountId = null;
-    bladeWallet.isConnected = false;
+    state.accountId = null;
+    state.isConnected = false;
     
     // Remove from localStorage
     localStorage.removeItem("blade_account");
@@ -84,20 +54,15 @@ export async function disconnectBlade() {
   }
 }
 
-export async function burnTokensWithBlade(tokenId: string, amount: number) {
+// Burn tokens using Blade Wallet (mockup)
+export async function burnTokensWithBlade(tokenId: string, amount: number): Promise<string> {
   try {
-    // In a real implementation, you would use the Blade Wallet SDK to:
-    // 1. Create a TokenBurnTransaction
-    // 2. Send it to Blade for signing
-    // 3. Submit it to the Hedera network
-    // 4. Wait for and return the transaction receipt or record
+    if (!state.isConnected || !state.accountId) {
+      throw new Error("Not connected to Blade wallet");
+    }
     
-    // Mock transaction for demo
-    const mockTransactionId = `0.0.${Date.now()}@${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 1000000)}`;
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    // For development, return a mock transaction ID
+    const mockTransactionId = `0.0.654321@${Date.now() / 1000 | 0}`;
     return mockTransactionId;
   } catch (error) {
     console.error("Blade burn transaction error:", error);
@@ -108,7 +73,7 @@ export async function burnTokensWithBlade(tokenId: string, amount: number) {
 // Get the current connection state
 export function getBladeConnectionState() {
   return {
-    isConnected: bladeWallet.isConnected,
-    accountId: bladeWallet.accountId
+    isConnected: state.isConnected,
+    accountId: state.accountId
   };
 }

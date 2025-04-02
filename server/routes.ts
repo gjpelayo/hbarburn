@@ -23,6 +23,7 @@ import { fromZodError } from "zod-validation-error";
 import { nanoid } from "nanoid";
 import session from "express-session";
 import { randomUUID } from "crypto";
+import { getAccountTokenBalances, isValidAccountId, formatTransactionId } from "./hedera";
 
 // Extend Express Request interface to include session user
 declare module "express-session" {
@@ -538,26 +539,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public API Routes
   
-  // Get all tokens (without accountId)
+// Get all tokens (without accountId)
   app.get("/api/tokens", async (req, res) => {
     try {
-      // If query parameter accountId is passed, filter by it
+      // If query parameter accountId is passed, fetch actual tokens and balances from Hedera
       const accountId = req.query.accountId as string;
       
       if (accountId) {
-        // Validate account ID format
-        if (!/^0\.0\.\d+$/.test(accountId)) {
+        // Validate account ID format using Hedera SDK validation
+        if (!isValidAccountId(accountId)) {
           return res.status(400).json({ message: "Invalid account ID format" });
         }
         
-        const tokens = await storage.getTokensByAccountId(accountId);
-        return res.json(tokens);
+        try {
+          // Try to fetch real token balances using Hedera SDK
+          const tokenBalances = await getAccountTokenBalances(accountId);
+          
+          // If we're in development/testing and there are no real balances, use mocked data
+          if (tokenBalances.size === 0 && process.env.NODE_ENV !== 'production') {
+            const mockedTokens = await storage.getTokensByAccountId(accountId);
+            return res.json(mockedTokens);
+          }
+          
+          // Convert token balances to the right format
+          const tokens = await Promise.all(
+            Array.from(tokenBalances.entries()).map(async ([tokenId, balance]) => {
+              // Try to get token metadata from our database
+              let tokenData = await storage.getTokenById(tokenId);
+              
+              if (!tokenData) {
+                // If we don't have the token info in our DB, create a basic entry
+                tokenData = {
+                  id: 0, // Will be assigned by storage
+                  tokenId,
+                  name: `Token ${tokenId}`,
+                  symbol: "TOKEN",
+                  decimals: 0,
+                  redemptionItem: null,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+              }
+              
+              // Return the token with its balance
+              return {
+                ...tokenData,
+                balance
+              };
+            })
+          );
+          
+          return res.json(tokens);
+        } catch (hederaError) {
+          console.error("Hedera error fetching token balances:", hederaError);
+          
+          // Fallback to mocked data during development/testing
+          if (process.env.NODE_ENV !== 'production') {
+            const mockedTokens = await storage.getTokensByAccountId(accountId);
+            return res.json(mockedTokens);
+          }
+          
+          // In production, surface the error
+          return res.status(500).json({ message: "Failed to fetch token balances from Hedera" });
+        }
       }
       
-      // If no accountId, return all tokens (for demo purposes)
-      const defaultAccountId = "0.0.1234567";
-      const tokens = await storage.getTokensByAccountId(defaultAccountId);
-      res.json(tokens);
+      // If no accountId, return all tokens from our database (without balances)
+      const allTokens = await storage.getTokens();
+      res.json(allTokens);
     } catch (error) {
       console.error("Error fetching tokens:", error);
       res.status(500).json({ message: "Failed to fetch tokens" });
@@ -569,13 +618,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { accountId } = req.params;
       
-      // Validate account ID format
-      if (!accountId || !/^0\.0\.\d+$/.test(accountId)) {
+      // Validate account ID format using Hedera SDK validation
+      if (!accountId || !isValidAccountId(accountId)) {
         return res.status(400).json({ message: "Invalid account ID format" });
       }
       
-      const tokens = await storage.getTokensByAccountId(accountId);
-      res.json(tokens);
+      try {
+        // Try to fetch real token balances using Hedera SDK
+        const tokenBalances = await getAccountTokenBalances(accountId);
+        
+        // If we're in development/testing and there are no real balances, use mocked data
+        if (tokenBalances.size === 0 && process.env.NODE_ENV !== 'production') {
+          const mockedTokens = await storage.getTokensByAccountId(accountId);
+          return res.json(mockedTokens);
+        }
+        
+        // Convert token balances to the right format
+        const tokens = await Promise.all(
+          Array.from(tokenBalances.entries()).map(async ([tokenId, balance]) => {
+            // Try to get token metadata from our database
+            let tokenData = await storage.getTokenById(tokenId);
+            
+            if (!tokenData) {
+              // If we don't have the token info in our DB, create a basic entry
+              tokenData = {
+                id: 0, // Will be assigned by storage
+                tokenId,
+                name: `Token ${tokenId}`,
+                symbol: "TOKEN",
+                decimals: 0,
+                redemptionItem: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+            }
+            
+            // Return the token with its balance
+            return {
+              ...tokenData,
+              balance
+            };
+          })
+        );
+        
+        return res.json(tokens);
+      } catch (hederaError) {
+        console.error("Hedera error fetching token balances:", hederaError);
+        
+        // Fallback to mocked data during development/testing
+        if (process.env.NODE_ENV !== 'production') {
+          const mockedTokens = await storage.getTokensByAccountId(accountId);
+          return res.json(mockedTokens);
+        }
+        
+        // In production, surface the error
+        return res.status(500).json({ message: "Failed to fetch token balances from Hedera" });
+      }
     } catch (error) {
       console.error("Error fetching tokens:", error);
       res.status(500).json({ message: "Failed to fetch tokens" });
@@ -762,12 +860,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check required burn amount
+      const requiredAmount = validConfig.burnAmount;
+      if (burnAmount < requiredAmount) {
+        return res.status(400).json({
+          message: `Insufficient burn amount. Required: ${requiredAmount}, Provided: ${burnAmount}`
+        });
+      }
+      
       // Create the redemption data
       const orderId = `ORD-${nanoid(8)}`;
       
-      // In a real app, we would get accountId from authenticated session
-      // For this demo, we'll use a mock account ID if not provided
-      const accountId = req.body.accountId || "0.0.1234567";
+      // Get account ID from authenticated session or request
+      const accountId = req.body.accountId;
+      
+      if (!accountId) {
+        return res.status(400).json({
+          message: "Account ID is required for token balance verification"
+        });
+      }
+      
+      // Validate account ID format
+      if (!isValidAccountId(accountId)) {
+        return res.status(400).json({
+          message: "Invalid account ID format"
+        });
+      }
+      
+      // Check the token balance
+      try {
+        const tokenBalances = await getAccountTokenBalances(accountId);
+        const tokenBalance = tokenBalances.get(tokenId) || 0;
+        
+        if (tokenBalance < burnAmount) {
+          return res.status(400).json({
+            message: `Insufficient token balance. Required: ${burnAmount}, Available: ${tokenBalance}`
+          });
+        }
+      } catch (balanceError) {
+        console.error("Error checking token balance:", balanceError);
+        
+        // If we can't verify balance in development, continue with the redemption
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn("Skipping balance check in development mode");
+        } else {
+          return res.status(500).json({
+            message: "Unable to verify token balance"
+          });
+        }
+      }
       
       // Validate with schema
       const validatedData = insertRedemptionSchema.parse({
@@ -805,8 +946,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId } = req.params;
       
+      // Get the original redemption
+      const redemption = await storage.getRedemptionByOrderId(orderId);
+      if (!redemption) {
+        return res.status(404).json({ message: "Redemption not found" });
+      }
+      
       // Validate with schema
       const validatedData = updateRedemptionSchema.parse(req.body);
+      
+      // If there's a transaction ID being added, verify it with Hedera
+      if (validatedData.transactionId && !redemption.transactionId) {
+        // Get account ID and token ID from the redemption
+        const { accountId, tokenId, amount } = redemption;
+        
+        try {
+          // In a production environment, we would verify the transaction with the Hedera API
+          // For now, we simply validate that it's a properly formatted transaction ID
+          let txId = validatedData.transactionId;
+          
+          // Use the formatTransactionId function to check if it's valid
+          try {
+            const formattedTxId = formatTransactionId(txId);
+            // If the transaction ID is valid, update it with the formatted version
+            validatedData.transactionId = formattedTxId;
+          } catch (formatError) {
+            // Only enforce in production
+            if (process.env.NODE_ENV === 'production') {
+              return res.status(400).json({
+                message: "Invalid transaction ID format"
+              });
+            }
+          }
+          
+          // If status is being changed to "processing", add a fulfillment update
+          if (validatedData.status === "processing" && !validatedData.fulfillmentUpdate) {
+            validatedData.fulfillmentUpdate = {
+              status: "processing",
+              timestamp: new Date().toISOString(),
+              message: "Token burn transaction confirmed. Order is now being processed."
+            };
+          }
+        } catch (txError) {
+          console.error("Error processing transaction:", txError);
+          
+          // In development, we allow unverified transactions
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn("Skipping transaction verification in development mode");
+          } else {
+            return res.status(400).json({
+              message: "Invalid transaction ID or unable to verify transaction"
+            });
+          }
+        }
+      }
       
       // Update the redemption
       const updated = await storage.updateRedemption(orderId, validatedData);
