@@ -51,17 +51,13 @@ export default function ShopsPage() {
   // Query to fetch shops
   const { data: shops, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/admin/shops"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/admin/shops");
-      return await res.json();
-    },
+    // Use the default queryFn which correctly handles the response
   });
 
   // Mutation to create a shop
   const createShopMutation = useMutation({
     mutationFn: async (data: FormValues) => {
-      const res = await apiRequest("POST", "/api/admin/shops", data);
-      return await res.json();
+      return await apiRequest("POST", "/api/admin/shops", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/shops"] });
@@ -83,8 +79,7 @@ export default function ShopsPage() {
   // Mutation to edit a shop
   const editShopMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: FormValues }) => {
-      const res = await apiRequest("PATCH", `/api/admin/shops/${id}`, data);
-      return await res.json();
+      return await apiRequest("PATCH", `/api/admin/shops/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/shops"] });
