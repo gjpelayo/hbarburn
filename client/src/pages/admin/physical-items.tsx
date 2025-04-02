@@ -11,26 +11,44 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Package, PencilIcon, Trash2Icon, PlusIcon, Loader2 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
-import type { PhysicalItem, InsertPhysicalItem } from "@shared/schema";
+import type { 
+  PhysicalItem, 
+  InsertPhysicalItem, 
+  Token, 
+  TokenConfiguration,
+  InsertTokenConfiguration,
+  UpdateTokenConfiguration
+} from "@shared/schema";
 
 // Create schema for form validation
 const physicalItemSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
   imageUrl: z.string().url("Must be a valid URL").or(z.string().length(0)).optional(),
-  tokenId: z.string().min(1, "Token ID is required"),
-  tokenSymbol: z.string().min(1, "Token symbol is required"),
-  tokenCost: z.coerce.number().min(1, "Token cost must be at least 1"),
 });
 
-type FormValues = z.infer<typeof physicalItemSchema>;
+// Create schema for token configuration
+const tokenConfigSchema = z.object({
+  tokenId: z.string().min(1, "Token ID is required"),
+  burnAmount: z.coerce.number().min(1, "Burn amount must be at least 1"),
+});
+
+type PhysicalItemFormValues = z.infer<typeof physicalItemSchema>;
+type TokenConfigFormValues = z.infer<typeof tokenConfigSchema>;
 
 export default function PhysicalItemsPage() {
   const { toast } = useToast();
-  const { createPhysicalItemMutation, updatePhysicalItemMutation, deletePhysicalItemMutation } = useAdmin();
+  const { 
+    createPhysicalItemMutation, 
+    updatePhysicalItemMutation, 
+    deletePhysicalItemMutation,
+    createTokenConfigurationMutation,
+    updateTokenConfigurationMutation
+  } = useAdmin();
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -41,44 +59,82 @@ export default function PhysicalItemsPage() {
   const { data: physicalItems = [], isLoading } = useQuery<PhysicalItem[]>({
     queryKey: ["/api/admin/physical-items"],
   });
+
+  // Load tokens data
+  const { data: tokens = [], isLoading: isLoadingTokens } = useQuery<Token[]>({
+    queryKey: ["/api/admin/tokens"],
+  });
+
+  // Load token configurations
+  const { data: tokenConfigurations = [] } = useQuery<TokenConfiguration[]>({
+    queryKey: ["/api/admin/token-configurations"],
+  });
   
   // Form for creating a new item
-  const createForm = useForm<FormValues>({
+  const physicalItemForm = useForm<PhysicalItemFormValues>({
     resolver: zodResolver(physicalItemSchema),
     defaultValues: {
       name: "",
       description: "",
       imageUrl: "",
+    },
+  });
+
+  // Form for token configuration
+  const tokenConfigForm = useForm<TokenConfigFormValues>({
+    resolver: zodResolver(tokenConfigSchema),
+    defaultValues: {
       tokenId: "",
-      tokenSymbol: "",
-      tokenCost: 1,
+      burnAmount: 1,
     },
   });
   
   // Form for editing an existing item
-  const editForm = useForm<FormValues>({
+  const editForm = useForm<PhysicalItemFormValues>({
     resolver: zodResolver(physicalItemSchema),
     defaultValues: {
       name: "",
       description: "",
       imageUrl: "",
-      tokenId: "",
-      tokenSymbol: "",
-      tokenCost: 1,
     },
   });
+  
+  // Get token configuration for a physical item
+  const getTokenConfigForItem = (physicalItemId: number) => {
+    return tokenConfigurations.find(config => config.physicalItemId === physicalItemId);
+  };
+  
+  // Get token details
+  const getTokenDetails = (tokenId: string) => {
+    return tokens.find(token => token.tokenId === tokenId);
+  };
   
   // When edit dialog opens, populate form with selected item data
   const handleEditClick = (item: PhysicalItem) => {
     setSelectedItem(item);
+    
+    // Set physical item form values
     editForm.reset({
       name: item.name,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      tokenId: item.tokenId,
-      tokenSymbol: item.tokenSymbol,
-      tokenCost: item.tokenCost,
+      description: item.description || "",
+      imageUrl: item.imageUrl || "",
     });
+    
+    // Find token configuration for this item
+    const tokenConfig = getTokenConfigForItem(item.id);
+    if (tokenConfig) {
+      tokenConfigForm.reset({
+        tokenId: tokenConfig.tokenId,
+        burnAmount: tokenConfig.burnAmount,
+      });
+    } else {
+      // Reset to default if no configuration found
+      tokenConfigForm.reset({
+        tokenId: "",
+        burnAmount: 1
+      });
+    }
+    
     setIsEditOpen(true);
   };
   
@@ -88,23 +144,8 @@ export default function PhysicalItemsPage() {
     setIsDeleteOpen(true);
   };
   
-  // Create a new physical item
-  const onCreateSubmit = (values: FormValues) => {
-    createPhysicalItemMutation.mutate(values as InsertPhysicalItem, {
-      onSuccess: () => {
-        toast({
-          title: "Physical item created",
-          description: "The physical item has been created successfully.",
-        });
-        setIsCreateOpen(false);
-        createForm.reset();
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-      },
-    });
-  };
-  
   // Update an existing physical item
-  const onEditSubmit = (values: FormValues) => {
+  const onEditSubmit = (values: PhysicalItemFormValues) => {
     if (!selectedItem) return;
     
     updatePhysicalItemMutation.mutate(
@@ -187,20 +228,40 @@ export default function PhysicalItemsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex justify-between items-center">
                   <span className="text-base">{item.name}</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {item.tokenCost} {item.tokenSymbol}
-                  </span>
+                  {(() => {
+                    const config = getTokenConfigForItem(item.id);
+                    const token = config ? getTokenDetails(config.tokenId) : null;
+                    
+                    return token ? (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {config.burnAmount} {token.symbol}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">
+                        No token configured
+                      </span>
+                    );
+                  })()}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {item.description.length > 120 
+                  {item.description && item.description.length > 120 
                     ? `${item.description.substring(0, 120)}...` 
                     : item.description}
                 </p>
                 <div className="flex justify-between items-center text-sm">
                   <div className="text-muted-foreground">
-                    Token: {item.tokenId}
+                    {(() => {
+                      const config = getTokenConfigForItem(item.id);
+                      const token = config ? getTokenDetails(config.tokenId) : null;
+                      
+                      return token ? (
+                        <span>Token: {token.tokenId}</span>
+                      ) : (
+                        <span className="italic">No token assigned</span>
+                      );
+                    })()}
                   </div>
                   <div className="flex space-x-2">
                     <Button 
@@ -234,110 +295,194 @@ export default function PhysicalItemsPage() {
           <DialogHeader>
             <DialogTitle>Create New Physical Item</DialogTitle>
           </DialogHeader>
-          <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-              <FormField
-                control={createForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Limited Edition T-Shirt" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="A detailed description of the physical item" 
-                        className="resize-none min-h-[100px]" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={createForm.control}
-                  name="tokenId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="0.0.1001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="tokenSymbol"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Symbol</FormLabel>
-                      <FormControl>
-                        <Input placeholder="HBAR" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="tokenCost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Cost</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)} type="button">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createPhysicalItemMutation.isPending}>
-                  {createPhysicalItemMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create Item"
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          
+          {/* Use two separate forms but style them as a single form */}
+          <div className="space-y-6">
+            {/* Physical Item Form */}
+            <div>
+              <h3 className="text-sm font-medium mb-3">Item Details</h3>
+              <Form {...physicalItemForm}>
+                <div className="space-y-4">
+                  <FormField
+                    control={physicalItemForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Limited Edition T-Shirt" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={physicalItemForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="A detailed description of the physical item" 
+                            className="resize-none min-h-[100px]" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={physicalItemForm.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Image URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/image.jpg" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Form>
+            </div>
+            
+            {/* Token Configuration Form */}
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-medium mb-3">Token Configuration</h3>
+              <Form {...tokenConfigForm}>
+                <div className="space-y-4">
+                  <FormField
+                    control={tokenConfigForm.control}
+                    name="tokenId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Required Token</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a token" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tokens.map((token) => (
+                              <SelectItem key={token.tokenId} value={token.tokenId}>
+                                {token.name} ({token.symbol}) - {token.tokenId}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={tokenConfigForm.control}
+                    name="burnAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Required Burn Amount</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Form>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)} type="button">
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                // Validate both forms
+                const isItemValid = await physicalItemForm.trigger();
+                const isTokenValid = await tokenConfigForm.trigger();
+                
+                if (!isItemValid || !isTokenValid) {
+                  return;
+                }
+                
+                // Get form values
+                const itemData = physicalItemForm.getValues();
+                const tokenData = tokenConfigForm.getValues();
+                
+                // Find selected token details
+                const selectedToken = tokens.find(t => t.tokenId === tokenData.tokenId);
+                
+                if (!selectedToken) {
+                  toast({
+                    title: "Error",
+                    description: "Please select a valid token",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                // Create physical item first
+                createPhysicalItemMutation.mutate(itemData as InsertPhysicalItem, {
+                  onSuccess: (newItem) => {
+                    // Then create token configuration
+                    createTokenConfigurationMutation.mutate({
+                      physicalItemId: newItem.id,
+                      tokenId: tokenData.tokenId,
+                      burnAmount: tokenData.burnAmount,
+                      isActive: true
+                    } as InsertTokenConfiguration, {
+                      onSuccess: () => {
+                        toast({
+                          title: "Physical item created",
+                          description: "The physical item and token configuration have been created successfully.",
+                        });
+                        setIsCreateOpen(false);
+                        physicalItemForm.reset();
+                        tokenConfigForm.reset();
+                        // Refresh data
+                        queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+                      },
+                      onError: (error) => {
+                        toast({
+                          title: "Error creating token configuration",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                      }
+                    });
+                  },
+                  onError: (error) => {
+                    toast({
+                      title: "Error creating physical item",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  }
+                });
+              }}
+              disabled={createPhysicalItemMutation.isPending || createTokenConfigurationMutation.isPending}
+            >
+              {createPhysicalItemMutation.isPending || createTokenConfigurationMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Item"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -347,109 +492,233 @@ export default function PhysicalItemsPage() {
           <DialogHeader>
             <DialogTitle>Edit Physical Item</DialogTitle>
           </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        className="resize-none min-h-[100px]" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="tokenId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token ID</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="tokenSymbol"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Symbol</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="tokenCost"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Cost</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={1} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditOpen(false)} type="button">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updatePhysicalItemMutation.isPending}>
-                  {updatePhysicalItemMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Item"
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          
+          {/* Use two separate forms but style them as a single form */}
+          <div className="space-y-6">
+            {/* Physical Item Form */}
+            <div>
+              <h3 className="text-sm font-medium mb-3">Item Details</h3>
+              <Form {...editForm}>
+                <div className="space-y-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            className="resize-none min-h-[100px]" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Image URL</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Form>
+            </div>
+            
+            {/* Token Configuration Form */}
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-medium mb-3">Token Configuration</h3>
+              <Form {...tokenConfigForm}>
+                <div className="space-y-4">
+                  <FormField
+                    control={tokenConfigForm.control}
+                    name="tokenId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Required Token</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a token" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tokens.map((token) => (
+                              <SelectItem key={token.tokenId} value={token.tokenId}>
+                                {token.name} ({token.symbol}) - {token.tokenId}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={tokenConfigForm.control}
+                    name="burnAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Required Burn Amount</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Form>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setIsEditOpen(false)} type="button">
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!selectedItem) return;
+                
+                // Validate both forms
+                const isItemValid = await editForm.trigger();
+                const isTokenValid = await tokenConfigForm.trigger();
+                
+                if (!isItemValid || !isTokenValid) {
+                  return;
+                }
+                
+                // Get form values
+                const itemData = editForm.getValues();
+                const tokenData = tokenConfigForm.getValues();
+                
+                // Find selected token details
+                const selectedToken = tokens.find(t => t.tokenId === tokenData.tokenId);
+                
+                if (!selectedToken) {
+                  toast({
+                    title: "Error",
+                    description: "Please select a valid token",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                // Get existing token configuration
+                const existingConfig = getTokenConfigForItem(selectedItem.id);
+                
+                // Update physical item first
+                updatePhysicalItemMutation.mutate(
+                  { id: selectedItem.id, data: itemData }, 
+                  {
+                    onSuccess: () => {
+                      // Then update or create token configuration
+                      if (existingConfig) {
+                        // Update existing configuration
+                        updateTokenConfigurationMutation.mutate({
+                          id: existingConfig.id,
+                          data: {
+                            tokenId: tokenData.tokenId,
+                            burnAmount: tokenData.burnAmount
+                          }
+                        }, {
+                          onSuccess: () => {
+                            toast({
+                              title: "Physical item updated",
+                              description: "The physical item and token configuration have been updated successfully.",
+                            });
+                            setIsEditOpen(false);
+                            // Refresh data
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+                          },
+                          onError: (error) => {
+                            toast({
+                              title: "Error updating token configuration",
+                              description: error.message,
+                              variant: "destructive",
+                            });
+                          }
+                        });
+                      } else {
+                        // Create new configuration
+                        createTokenConfigurationMutation.mutate({
+                          physicalItemId: selectedItem.id,
+                          tokenId: tokenData.tokenId,
+                          burnAmount: tokenData.burnAmount,
+                          isActive: true
+                        } as InsertTokenConfiguration, {
+                          onSuccess: () => {
+                            toast({
+                              title: "Physical item updated",
+                              description: "The physical item and token configuration have been updated successfully.",
+                            });
+                            setIsEditOpen(false);
+                            // Refresh data
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+                          },
+                          onError: (error) => {
+                            toast({
+                              title: "Error creating token configuration",
+                              description: error.message,
+                              variant: "destructive",
+                            });
+                          }
+                        });
+                      }
+                    },
+                    onError: (error) => {
+                      toast({
+                        title: "Error updating physical item",
+                        description: error.message,
+                        variant: "destructive",
+                      });
+                    }
+                  }
+                );
+              }}
+              disabled={updatePhysicalItemMutation.isPending || 
+                       createTokenConfigurationMutation.isPending || 
+                       updateTokenConfigurationMutation?.isPending}
+            >
+              {updatePhysicalItemMutation.isPending || 
+               createTokenConfigurationMutation.isPending || 
+               updateTokenConfigurationMutation?.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Item"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
