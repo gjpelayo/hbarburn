@@ -21,10 +21,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardFooter,
+  CardDescription 
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { OrderStatusEnum, UpdateRedemption } from '@shared/schema';
 import { OrderTrackingTimeline } from '../OrderTrackingTimeline';
 import { Redemption } from '@shared/schema';
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
+import { 
+  AlertCircle, 
+  Check, 
+  CreditCard, 
+  DollarSign, 
+  Loader2, 
+  Package, 
+  Truck 
+} from "lucide-react";
 
 // Define schema for the form
 const fulfillmentFormSchema = z.object({
@@ -51,6 +77,8 @@ export const FulfillmentDetailsForm: FC<FulfillmentDetailsFormProps> = ({
   isLoading
 }) => {
   const [showPreview, setShowPreview] = useState(false);
+  const [showShippingCostModal, setShowShippingCostModal] = useState(false);
+  const { toast } = useToast();
 
   // Default values for the form
   const defaultValues: Partial<FulfillmentFormValues> = {
@@ -124,6 +152,57 @@ export const FulfillmentDetailsForm: FC<FulfillmentDetailsFormProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Shipping Payment Card */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-200 dark:border-blue-800">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center">
+            <DollarSign className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
+            Shipping & Fulfillment
+          </CardTitle>
+          <CardDescription>Process and pay for shipping</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col space-y-2">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium">Shipping Cost</p>
+                <p className="text-xs text-muted-foreground">
+                  Pay to create shipping label and fulfill this order
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                onClick={() => {
+                  if (import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+                    setShowShippingCostModal(true);
+                  } else {
+                    toast({
+                      title: "Payment not configured",
+                      description: "Please add your Stripe API keys to enable payments.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Create Shipping Label
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="pt-0 border-t border-blue-100 dark:border-blue-900/50 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between w-full">
+            <p>Need to add a payment method?</p>
+            <Link href="/admin/payment-methods">
+              <a className="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+                <CreditCard className="h-3 w-3 mr-1" />
+                Manage Payment Methods
+              </a>
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <Card>
@@ -310,6 +389,117 @@ export const FulfillmentDetailsForm: FC<FulfillmentDetailsFormProps> = ({
           <OrderTrackingTimeline {...getPreviewData()} />
         </div>
       )}
+
+      {/* Shipping Payment Modal */}
+      <Dialog open={showShippingCostModal} onOpenChange={setShowShippingCostModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Truck className="h-5 w-5 mr-2 text-primary" />
+              Create Shipping Label
+            </DialogTitle>
+            <DialogDescription>
+              Pay for shipping to generate a label for this order.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="bg-muted p-4 rounded-lg space-y-3">
+              <h3 className="font-medium text-sm">Order Details</h3>
+              <div className="flex justify-between items-center text-sm">
+                <span>Order #:</span>
+                <span className="font-medium">{redemption.orderId.substring(0, 8)}...</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span>Recipient:</span>
+                <span className="font-medium">
+                  {redemption.shippingInfo.firstName} {redemption.shippingInfo.lastName}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span>Destination:</span>
+                <span className="font-medium">
+                  {redemption.shippingInfo.city}, {redemption.shippingInfo.state}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg space-y-3 border border-blue-200 dark:border-blue-900">
+              <h3 className="font-medium text-sm flex items-center text-blue-800 dark:text-blue-300">
+                <DollarSign className="h-4 w-4 mr-1" />
+                Shipping Options
+              </h3>
+              
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 p-2 border border-blue-200 dark:border-blue-900 rounded-md bg-white dark:bg-background hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer">
+                  <div className="h-4 w-4 mt-0.5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                    <div className="h-2 w-2 rounded-full bg-blue-600"></div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <p className="font-medium text-sm">Standard Shipping</p>
+                      <p className="font-bold text-sm">$5.99</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Delivery in 3-5 business days</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 p-2 border border-muted rounded-md bg-white dark:bg-background hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer">
+                  <div className="h-4 w-4 mt-0.5 rounded-full border-2 border-muted"></div>
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <p className="font-medium text-sm">Express Shipping</p>
+                      <p className="font-medium text-sm">$12.99</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Delivery in 1-2 business days</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex justify-between mb-1">
+                <span className="text-sm">Subtotal:</span>
+                <span className="text-sm">$5.99</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm">Tax:</span>
+                <span className="text-sm">$0.48</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span>Total:</span>
+                <span>$6.47</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex-1 text-xs text-muted-foreground flex items-center">
+              <CreditCard className="h-3 w-3 mr-1" />
+              Payment via your default payment method
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowShippingCostModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                // This would normally process the payment through Stripe
+                toast({
+                  title: "Stripe API not configured",
+                  description: "Shipping label payment would be processed here.",
+                  variant: "default",
+                });
+                setShowShippingCostModal(false);
+              }}
+            >
+              Pay & Create Label
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

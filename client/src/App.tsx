@@ -18,6 +18,7 @@ import TokensPage from "@/pages/admin/tokens";
 import TokenConfigurationsPage from "@/pages/admin/token-configurations";
 import RedemptionsPage from "@/pages/admin/redemptions";
 import ShopsPage from "@/pages/admin/shops";
+import PaymentMethodsPage from "@/pages/admin/payment-methods";
 
 function Router() {
   return (
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/admin/token-configurations" component={TokenConfigurationsPage} />
       <Route path="/admin/redemptions" component={RedemptionsPage} />
       <Route path="/admin/shops" component={ShopsPage} />
+      <Route path="/admin/payment-methods" component={PaymentMethodsPage} />
       
       {/* 404 Route */}
       <Route component={NotFound} />

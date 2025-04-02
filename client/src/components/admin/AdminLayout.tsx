@@ -9,7 +9,9 @@ import {
   ShoppingCart, 
   LogOut, 
   BarChart3,
-  Home
+  Home,
+  CreditCard,
+  Store
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -47,6 +49,8 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
     { label: "Tokens", icon: <Coins className="h-4 w-4 mr-2" />, href: "/admin/tokens" },
     { label: "Token Configs", icon: <Settings className="h-4 w-4 mr-2" />, href: "/admin/token-configurations" },
     { label: "Redemptions", icon: <ShoppingCart className="h-4 w-4 mr-2" />, href: "/admin/redemptions" },
+    { label: "Shops", icon: <Store className="h-4 w-4 mr-2" />, href: "/admin/shops" },
+    { label: "Payment Methods", icon: <CreditCard className="h-4 w-4 mr-2" />, href: "/admin/payment-methods" },
   ];
   
   return (
