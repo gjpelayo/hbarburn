@@ -23,21 +23,33 @@ export async function validateAddressBasic(address: Address): Promise<AddressVal
   if (!address.address || address.address.length < 5) {
     return {
       isValid: false,
-      message: "Address is too short and may be incomplete."
+      message: "Address is too short and may be incomplete.",
+      suggestions: [
+        "Include the building/house number and street name",
+        "Make sure to enter the complete street address"
+      ]
     };
   }
 
   if (!address.city || address.city.length < 2) {
     return {
       isValid: false,
-      message: "Please enter a valid city name."
+      message: "Please enter a valid city name.",
+      suggestions: [
+        "Enter the full city name without abbreviations",
+        "Check for typos in the city name"
+      ]
     };
   }
 
   if (!address.state || address.state.length < 2) {
     return {
       isValid: false,
-      message: "Please enter a valid state/province."
+      message: "Please enter a valid state/province.",
+      suggestions: [
+        "For US addresses, use the 2-letter state code (e.g. CA, NY, TX)",
+        "For other countries, enter the full province or region name"
+      ]
     };
   }
 
@@ -76,13 +88,32 @@ export async function validateAddressBasic(address: Address): Promise<AddressVal
     ) {
       return {
         isValid: false,
-        message: "The address appears to contain test or invalid data."
+        message: "The address appears to contain test or invalid data.",
+        suggestions: [
+          "Please enter your actual shipping address",
+          "We need a valid address to deliver your physical goods"
+        ]
       };
     }
   }
+  
+  // Check for PO Box addresses which may not be acceptable for physical deliveries
+  if (/\b[Pp]\.?[Oo]\.?\s*[Bb][Oo][Xx]\b/.test(address.address)) {
+    return {
+      isValid: false,
+      message: "PO Box addresses are not accepted for physical item deliveries.",
+      suggestions: [
+        "Please provide a physical street address for delivery",
+        "We cannot ship physical items to PO Boxes"
+      ]
+    };
+  }
 
   // If all basic validation passes
-  return { isValid: true };
+  return { 
+    isValid: true,
+    message: "Address validation successful. Your items will be shipped to this address."
+  };
 }
 
 /**
@@ -139,13 +170,21 @@ export async function validateAddressExternal(address: Address): Promise<Address
     }
 
     // Since this is a simulated response, we'll return success for addresses that pass basic validation
-    return { isValid: true };
+    return { 
+      isValid: true,
+      message: "Address validation confirmed by our system. Your physical items will be shipped to this address."
+    };
 
   } catch (error) {
     console.error("Address validation error:", error);
     return {
       isValid: false,
-      message: "Unable to validate address at this time. Please double-check your information."
+      message: "Unable to validate address at this time. Please double-check your information.",
+      suggestions: [
+        "Our address validation service is experiencing issues",
+        "You can try again in a few moments",
+        "Or check 'I confirm my address is correct' to proceed anyway"
+      ]
     };
   }
 }

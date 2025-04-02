@@ -32,9 +32,17 @@ const formSchema = z.object({
   lastName: z.string().min(2, {
     message: "Last name must be at least 2 characters.",
   }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
+  email: z.string()
+    .min(1, { message: "Email is required" })
+    .email({ message: "Please enter a valid email address" })
+    .refine(
+      (email) => {
+        // More comprehensive email validation
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return emailRegex.test(email);
+      },
+      { message: "Invalid email format. Please use a standard email address (e.g. name@example.com)" }
+    ),
   address: z.string().min(5, {
     message: "Address must be at least 5 characters.",
   }),
@@ -51,9 +59,17 @@ const formSchema = z.object({
   country: z.string().min(2, {
     message: "Please select a country.",
   }),
-  phone: z.string().min(5, {
-    message: "Phone number must be at least 5 characters.",
-  }),
+  phone: z.string()
+    .min(5, { message: "Phone number must be at least 5 characters" })
+    .refine(
+      (phone) => {
+        // Basic phone validation to ensure it contains at least some digits
+        // (we don't want to be too strict due to international formats)
+        const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]*$/;
+        return phoneRegex.test(phone);
+      },
+      { message: "Please enter a valid phone number format" }
+    ),
 });
 
 const countries = [
