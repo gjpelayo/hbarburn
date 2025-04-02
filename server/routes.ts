@@ -170,23 +170,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.logout((err) => {
         if (err) {
           console.error("Error logging out from passport:", err);
+          return res.status(500).send("Logout failed");
         }
         
         // Then destroy the session
         req.session.destroy((err) => {
           if (err) {
-            return res.status(500).json({ message: "Logout failed" });
+            return res.status(500).send("Logout failed");
           }
-          res.status(200).json({ message: "Logged out successfully" });
+          res.status(200).send("Logged out successfully");
         });
       });
     } else {
       // Just destroy the session if not authenticated with passport
       req.session.destroy((err) => {
         if (err) {
-          return res.status(500).json({ message: "Logout failed" });
+          return res.status(500).send("Logout failed");
         }
-        res.status(200).json({ message: "Logged out successfully" });
+        res.status(200).send("Logged out successfully");
       });
     }
   });

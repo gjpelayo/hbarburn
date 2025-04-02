@@ -83,7 +83,18 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/admin/logout");
+      // Use fetch directly instead of apiRequest to handle non-JSON responses
+      const res = await fetch("/api/admin/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Logout failed: ${res.status} ${res.statusText}`);
+      }
+      
+      // Nothing to return as we're just handling the logout action
+      return;
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/admin/user"], null);
