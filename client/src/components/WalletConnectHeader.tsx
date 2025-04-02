@@ -52,63 +52,74 @@ export function WalletConnectHeader() {
             <div className="hidden md:block text-sm text-neutral-500 ml-2 mt-1">| Physical Redemption Platform</div>
           </div>
           
-          {!isConnected ? (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default" className="bg-primary text-white">
-                  Connect Wallet
+          <div className="flex items-center gap-2">
+            {!isConnected ? (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default" className="bg-primary text-white">
+                    Connect Wallet
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Connect your wallet</DialogTitle>
+                    <DialogDescription>
+                      Choose a wallet to connect to the Hedera network.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <Button 
+                      onClick={handleConnectHashpack}
+                      className="w-full flex justify-center items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M7 7h.01" />
+                        <path d="M17 7h.01" />
+                        <path d="M7 17h.01" />
+                        <path d="M17 17h.01" />
+                      </svg>
+                      Connect with HashPack
+                    </Button>
+                    <Button 
+                      onClick={handleConnectBlade}
+                      variant="outline"
+                      className="w-full flex justify-center items-center gap-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.5" />
+                        <path d="M20 16V8a2 2 0 0 0-2-2h-2" />
+                        <path d="M12 12h6" />
+                      </svg>
+                      Connect with Blade
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 border-green-500 text-green-700 bg-green-50 hover:bg-green-100"
+                  size="sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
+                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                  </svg>
+                  Connected
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Connect your wallet</DialogTitle>
-                  <DialogDescription>
-                    Choose a wallet to connect to the Hedera network.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <Button 
-                    onClick={handleConnectHashpack}
-                    className="w-full flex justify-center items-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="18" height="18" x="3" y="3" rx="2" />
-                      <path d="M7 7h.01" />
-                      <path d="M17 7h.01" />
-                      <path d="M7 17h.01" />
-                      <path d="M17 17h.01" />
-                    </svg>
-                    Connect with HashPack
-                  </Button>
-                  <Button 
-                    onClick={handleConnectBlade}
-                    variant="outline"
-                    className="w-full flex justify-center items-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.5" />
-                      <path d="M20 16V8a2 2 0 0 0-2-2h-2" />
-                      <path d="M12 12h6" />
-                    </svg>
-                    Connect with Blade
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-neutral-600">
-                Connected: <span className="font-medium">{accountId}</span>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={disconnectWallet}
-                size="sm"
-              >
-                Disconnect
-              </Button>
-            </div>
-          )}
+                <Button 
+                  variant="ghost" 
+                  onClick={disconnectWallet}
+                  size="sm"
+                  className="text-neutral-600 hover:text-neutral-900"
+                >
+                  Disconnect
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
