@@ -19,13 +19,9 @@ export function WalletConnectHeader() {
   
   const handleConnectHashpack = async () => {
     try {
-      const success = await connectWallet("hashpack");
+      await connectWallet("hashpack");
       setIsConnectDialogOpen(false);
-      
-      // Redirect to admin dashboard if we're trying to access the admin area
-      if (success && (location.includes('/admin') || location === '/')) {
-        navigate('/admin');
-      }
+      // No redirection - stay on current page
     } catch (error) {
       console.error("Error connecting HashPack wallet:", error);
     }
@@ -33,13 +29,9 @@ export function WalletConnectHeader() {
   
   const handleConnectBlade = async () => {
     try {
-      const success = await connectWallet("blade");
+      await connectWallet("blade");
       setIsConnectDialogOpen(false);
-      
-      // Redirect to admin dashboard if we're trying to access the admin area
-      if (success && (location.includes('/admin') || location === '/')) {
-        navigate('/admin');
-      }
+      // No redirection - stay on current page
     } catch (error) {
       console.error("Error connecting Blade wallet:", error);
     }
