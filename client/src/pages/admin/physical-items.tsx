@@ -213,15 +213,15 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-[1200px]">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-[1000px] mx-auto place-items-center">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
+            <Card key={item.id} className="hover:shadow-md transition-shadow max-w-xs">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
                     src={item.imageUrl} 
                     alt={item.name} 
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover object-center" 
                   />
                 </div>
               )}
