@@ -14,6 +14,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading } = useAdmin();
   const { isConnected } = useWallet();
   
+  // Use effects for all navigation to avoid conditional hook issues
+  useEffect(() => {
+    // If not connected to a wallet, redirect to home page
+    if (!isLoading && !isConnected) {
+      navigate("/");
+    }
+  }, [isLoading, isConnected, navigate]);
+  
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -23,15 +31,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
   
-  // If not connected to a wallet, redirect to home page
-  // The home page has the wallet connect button in the header
+  // If not connected to a wallet, show loading while redirect happens
   if (!isConnected) {
-    // Use useEffect to handle the navigation instead of doing it during render
-    // This will prevent the React warning about updating state during render
-    useEffect(() => {
-      navigate("/");
-    }, [navigate]);
-    
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />

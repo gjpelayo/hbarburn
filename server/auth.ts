@@ -99,12 +99,22 @@ export function setupAuth(app: Express) {
     console.log('User in session:', req.session.user);
     console.log('User in passport:', req.user);
     
+    // Add user to session if it's not there but present in passport
+    // This happens because sometimes the session data is not properly synced
+    if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
+      req.session.user = req.user;
+      req.session.isLoggedIn = true;
+      console.log('Syncing user from passport to session:', req.user.id);
+    }
+    
     // First check if there's a user in passport session
     if (req.isAuthenticated() && req.user) {
       // User is authenticated via passport, check admin status
       if (req.user.isAdmin) {
+        console.log('Admin access granted via passport for user:', req.user.id);
         return res.json(req.user);
       } else {
+        console.log('Admin access denied - user not admin:', req.user.id);
         return res.sendStatus(403); // Forbidden - not an admin
       }
     }
@@ -113,6 +123,7 @@ export function setupAuth(app: Express) {
     if (req.session.user && req.session.isLoggedIn) {
       // If user is in session and marked as admin, return them
       if (req.session.user.isAdmin) {
+        console.log('Admin access granted via session for user:', req.session.user.id);
         // Also try to login with passport for future requests
         req.login(req.session.user, (err) => {
           if (err) {
