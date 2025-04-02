@@ -48,6 +48,7 @@ export default function ShopsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'active' | 'inactive' | 'all'>('active');
 
   // Query to fetch shops
   const { data: shops, isLoading, error, refetch } = useQuery({
@@ -220,8 +221,6 @@ export default function ShopsPage() {
     );
   }
 
-  const [filterStatus, setFilterStatus] = useState<'active' | 'inactive' | 'all'>('active');
-  
   // Filter shops based on the selected status
   const filteredShops = useMemo(() => {
     if (!shops) return [];
