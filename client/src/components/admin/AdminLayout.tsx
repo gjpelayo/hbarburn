@@ -75,42 +75,33 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <div 
-        className={`${collapsed ? 'w-16' : 'w-64'} bg-card shadow-md border-r transition-all duration-300 flex flex-col`}
+        className={`${collapsed ? 'w-[60px]' : 'w-64'} bg-card shadow-md border-r transition-all duration-300 flex flex-col z-10`}
       >
-        <div className={`${collapsed ? 'justify-center' : 'justify-between'} flex items-center p-4 border-b`}>
-          {!collapsed && (
-            <div>
-              <h1 className="text-xl font-bold">Admin Panel</h1>
-              <p className="text-sm text-muted-foreground">Token Platform</p>
-            </div>
-          )}
+        <div className="flex items-center justify-center p-4 border-b">
           <Button 
             variant="ghost" 
             size="icon" 
             className="h-8 w-8" 
             onClick={toggleSidebar}
           >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
         
         <div className="py-4 flex-grow overflow-y-auto">
-          <nav className="space-y-1 px-2">
+          <nav className="space-y-1 px-1">
             {navigationItems.map((item) => (
               <div key={item.href}>
                 <Link href={item.href}>
                   <div 
-                    className={`cursor-pointer ${collapsed ? 'justify-center' : 'justify-start'} flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                    className={`cursor-pointer justify-center flex items-center px-2 py-2 rounded-md text-sm font-medium ${
                       location === item.href 
                         ? "bg-primary text-primary-foreground" 
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
-                    title={collapsed ? item.label : undefined}
+                    title={item.label}
                   >
-                    <div className={collapsed ? '' : 'mr-2'}>
-                      {React.cloneElement(item.icon as React.ReactElement, { className: "h-4 w-4" })}
-                    </div>
-                    {!collapsed && item.label}
+                    {React.cloneElement(item.icon as React.ReactElement, { className: "h-5 w-5" })}
                   </div>
                 </Link>
               </div>
@@ -118,8 +109,75 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           </nav>
         </div>
         
-        <div className="mt-auto p-4 border-t">
-          {!collapsed ? (
+        <div className="mt-auto py-4 border-t flex flex-col items-center gap-3">
+          <div className="bg-primary/10 text-primary p-1.5 rounded-full" title={user?.username || 'Admin'}>
+            <span className="font-medium text-xs">{(user?.username && typeof user.username === 'string') ? user.username.charAt(0).toUpperCase() : 'A'}</span>
+          </div>
+              
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => navigate("/")}
+            title="Front-end"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+              
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleLogout}
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Expanded sidebar overlay */}
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-0"
+          onClick={toggleSidebar}
+        />
+      )}
+      
+      {/* Expanded sidebar content */}
+      {!collapsed && (
+        <div 
+          className="absolute left-[60px] top-0 w-56 h-screen bg-card shadow-lg border-r z-20 flex flex-col"
+        >
+          <div className="p-4 border-b">
+            <h1 className="text-xl font-bold">Admin Panel</h1>
+            <p className="text-sm text-muted-foreground">Token Platform</p>
+          </div>
+          
+          <div className="py-4 flex-grow overflow-y-auto">
+            <nav className="space-y-1 px-2">
+              {navigationItems.map((item) => (
+                <div key={item.href}>
+                  <Link href={item.href}>
+                    <div 
+                      className={`cursor-pointer flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                        location === item.href 
+                          ? "bg-primary text-primary-foreground" 
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      }`}
+                    >
+                      <div className="mr-2">
+                        {React.cloneElement(item.icon as React.ReactElement, { className: "h-4 w-4" })}
+                      </div>
+                      {item.label}
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </nav>
+          </div>
+          
+          <div className="mt-auto p-4 border-t">
             <div className="flex flex-col gap-2">
               <div className="flex items-center space-x-2">
                 <div className="bg-primary/10 text-primary p-1.5 rounded-full">
@@ -152,35 +210,9 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <div className="bg-primary/10 text-primary p-1.5 rounded-full">
-                <span className="font-medium text-xs">{(user?.username && typeof user.username === 'string') ? user.username.charAt(0).toUpperCase() : 'A'}</span>
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => navigate("/")}
-                title="Front-end"
-              >
-                <Home className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleLogout}
-                title="Logout"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
