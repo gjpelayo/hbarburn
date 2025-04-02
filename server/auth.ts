@@ -99,20 +99,33 @@ export function setupAuth(app: Express) {
     console.log('User in session:', req.session.user);
     console.log('User in passport:', req.user);
     
-    // Check both session and passport user
-    if (!req.isAuthenticated()) {
-      if (req.session.user && req.session.user.isAdmin) {
-        // If we have a user in session but not authenticated via passport
-        // let's still consider them authenticated
-        return res.json(req.session.user);
+    // First check if there's a user in passport session
+    if (req.isAuthenticated() && req.user) {
+      // User is authenticated via passport, check admin status
+      if (req.user.isAdmin) {
+        return res.json(req.user);
+      } else {
+        return res.sendStatus(403); // Forbidden - not an admin
       }
-      return res.sendStatus(401);
     }
     
-    if (!req.user.isAdmin) {
-      return res.sendStatus(403); // Forbidden - not an admin
+    // If not in passport session, check session storage
+    if (req.session.user && req.session.isLoggedIn) {
+      // If user is in session and marked as admin, return them
+      if (req.session.user.isAdmin) {
+        // Also try to login with passport for future requests
+        req.login(req.session.user, (err) => {
+          if (err) {
+            console.error("Error logging in with passport from session:", err);
+          }
+        });
+        return res.json(req.session.user);
+      } else {
+        return res.sendStatus(403); // Forbidden - not an admin
+      }
     }
     
-    res.json(req.user);
+    // No authenticated user found
+    return res.sendStatus(401);
   });
 }

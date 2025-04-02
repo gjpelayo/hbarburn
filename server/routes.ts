@@ -109,16 +109,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = user;
       req.session.isLoggedIn = true;
       
-      // Also login with passport
-      req.login(user, (err) => {
+      // Save the session first to ensure it's stored before passport login
+      req.session.save((err) => {
         if (err) {
-          console.error("Error logging in with passport:", err);
-          return res.status(500).json({ message: "Wallet login failed" });
+          console.error("Error saving session:", err);
+          return res.status(500).json({ message: "Session save failed" });
         }
         
-        // Don't return password in response
-        const { password: _, ...userWithoutPassword } = user;
-        res.json(userWithoutPassword);
+        // Then login with passport
+        req.login(user, (err) => {
+          if (err) {
+            console.error("Error logging in with passport:", err);
+            return res.status(500).json({ message: "Wallet login failed" });
+          }
+          
+          console.log("Successfully authenticated wallet user:", user.id, user.accountId);
+          
+          // Don't return password in response
+          const { password: _, ...userWithoutPassword } = user;
+          res.json(userWithoutPassword);
+        });
       });
     } catch (error) {
       console.error("Wallet login error:", error);
