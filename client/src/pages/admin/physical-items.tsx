@@ -213,7 +213,7 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] ml-4 mr-4 px-0">
           {physicalItems.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
               {item.imageUrl && (
@@ -225,7 +225,7 @@ export default function PhysicalItemsPage() {
                   />
                 </div>
               )}
-              <CardHeader className="pb-2">
+              <CardHeader className="px-4 py-3 pb-0">
                 <CardTitle className="flex flex-col gap-1">
                   <span className="text-base truncate">{item.name}</span>
                   {(() => {
@@ -244,7 +244,7 @@ export default function PhysicalItemsPage() {
                   })()}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col flex-grow">
+              <CardContent className="flex flex-col flex-grow px-4 py-2">
                 <p className="text-sm text-muted-foreground mb-4">
                   {item.description}
                 </p>
