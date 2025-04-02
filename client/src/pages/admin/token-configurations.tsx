@@ -20,7 +20,7 @@ import type { TokenConfiguration, PhysicalItem, Token, InsertTokenConfiguration 
 const tokenConfigSchema = z.object({
   physicalItemId: z.coerce.number().min(1, "Physical item is required"),
   tokenId: z.string().min(1, "Token is required"),
-  requiredAmount: z.coerce.number().min(1, "Required amount must be at least 1"),
+  burnAmount: z.coerce.number().min(1, "Burn amount must be at least 1"),
 });
 
 type FormValues = z.infer<typeof tokenConfigSchema>;
@@ -57,7 +57,7 @@ export default function TokenConfigurationsPage() {
     defaultValues: {
       physicalItemId: 0,
       tokenId: "",
-      requiredAmount: 1,
+      burnAmount: 1,
     },
   });
   
@@ -67,7 +67,7 @@ export default function TokenConfigurationsPage() {
     defaultValues: {
       physicalItemId: 0,
       tokenId: "",
-      requiredAmount: 1,
+      burnAmount: 1,
     },
   });
   
@@ -77,7 +77,7 @@ export default function TokenConfigurationsPage() {
     editForm.reset({
       physicalItemId: config.physicalItemId,
       tokenId: config.tokenId,
-      requiredAmount: config.requiredAmount,
+      burnAmount: config.burnAmount,
     });
     setIsEditOpen(true);
   };
@@ -150,17 +150,17 @@ export default function TokenConfigurationsPage() {
   
   return (
     <AdminLayout title="Token Configurations">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 max-w-[100vw] overflow-hidden px-2">
+        <h2 className="text-lg font-semibold mb-1.5">Manage Token Configurations</h2>
+        <p className="text-sm text-muted-foreground mb-3 max-w-2xl">
+          Configure which tokens can be burned to redeem specific physical items
+        </p>
         <div>
-          <h2 className="text-lg font-semibold">Manage Token Configurations</h2>
-          <p className="text-sm text-muted-foreground">
-            Configure which tokens can be burned to redeem specific physical items
-          </p>
+          <Button onClick={() => setIsCreateOpen(true)} size="sm">
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+            Add Configuration
+          </Button>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Configuration
-        </Button>
       </div>
       
       {isLoading ? (
@@ -203,7 +203,7 @@ export default function TokenConfigurationsPage() {
                     <div>
                       <h3 className="font-medium">{physicalItem?.name || "Unknown Item"}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {physicalItem?.description.substring(0, 60)}...
+                        {physicalItem?.description ? physicalItem.description.substring(0, 60) + '...' : 'No description'}
                       </p>
                     </div>
                   </div>
@@ -212,7 +212,7 @@ export default function TokenConfigurationsPage() {
                     <div className="flex justify-between items-center mb-2">
                       <div className="text-sm font-medium">Redeemable with:</div>
                       <div className="text-sm font-semibold">
-                        {config.requiredAmount} tokens
+                        {config.burnAmount} tokens
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
@@ -315,10 +315,10 @@ export default function TokenConfigurationsPage() {
               />
               <FormField
                 control={createForm.control}
-                name="requiredAmount"
+                name="burnAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Required Amount</FormLabel>
+                    <FormLabel>Required Burn Amount</FormLabel>
                     <FormControl>
                       <Input type="number" min={1} {...field} />
                     </FormControl>
@@ -411,10 +411,10 @@ export default function TokenConfigurationsPage() {
               />
               <FormField
                 control={editForm.control}
-                name="requiredAmount"
+                name="burnAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Required Amount</FormLabel>
+                    <FormLabel>Required Burn Amount</FormLabel>
                     <FormControl>
                       <Input type="number" min={1} {...field} />
                     </FormControl>

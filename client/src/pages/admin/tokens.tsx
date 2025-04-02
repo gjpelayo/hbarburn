@@ -25,7 +25,7 @@ const tokenSchema = z.object({
   name: z.string().min(1, "Name is required"),
   symbol: z.string().min(1, "Symbol is required"),
   decimals: z.coerce.number().min(0, "Decimals must be at least 0"),
-  redemptionItem: z.string().min(1, "Redemption item description is required"),
+  redemptionItem: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof tokenSchema>;
@@ -76,7 +76,7 @@ export default function TokensPage() {
       name: token.name,
       symbol: token.symbol,
       decimals: token.decimals,
-      redemptionItem: token.redemptionItem,
+      redemptionItem: token.redemptionItem || "",
     });
     setIsEditOpen(true);
   };
@@ -139,17 +139,17 @@ export default function TokensPage() {
   
   return (
     <AdminLayout title="Tokens">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 max-w-[100vw] overflow-hidden px-2">
+        <h2 className="text-lg font-semibold mb-1.5">Manage Tokens</h2>
+        <p className="text-sm text-muted-foreground mb-3 max-w-2xl">
+          Add, edit or remove tokens that can be burned for physical items
+        </p>
         <div>
-          <h2 className="text-lg font-semibold">Manage Tokens</h2>
-          <p className="text-sm text-muted-foreground">
-            Add, edit or remove tokens that can be burned for physical items
-          </p>
+          <Button onClick={() => setIsCreateOpen(true)} size="sm">
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+            Add New Token
+          </Button>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add New Token
-        </Button>
       </div>
       
       {isLoading ? (
@@ -194,11 +194,11 @@ export default function TokensPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Balance</span>
-                    <span>{token.balance || "0"}</span>
+                    <span>{(token as any).balance || "0"}</span>
                   </div>
                   <div className="text-sm mt-2">
                     <div className="text-muted-foreground mb-1">Redemption Item</div>
-                    <div>{token.redemptionItem}</div>
+                    <div>{token.redemptionItem || "-"}</div>
                   </div>
                 </div>
                 
