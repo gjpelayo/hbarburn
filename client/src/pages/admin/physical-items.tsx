@@ -213,9 +213,9 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] ml-4 mr-4 px-0">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
+            <Card key={item.id} className="hover:shadow-md transition-shadow">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
@@ -225,26 +225,36 @@ export default function PhysicalItemsPage() {
                   />
                 </div>
               )}
-              <CardHeader className="px-4 py-3 pb-0">
-                <CardTitle className="flex flex-col gap-1">
-                  <span className="text-base truncate">{item.name}</span>
-                  {(() => {
-                    const config = getTokenConfigForItem(item.id);
-                    const token = config ? getTokenDetails(config.tokenId) : null;
-                    
-                    return token && config ? (
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {config.burnAmount} {token.symbol}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground italic">
-                        No token configured
-                      </span>
-                    );
-                  })()}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-grow px-4 py-2">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    {(() => {
+                      const config = getTokenConfigForItem(item.id);
+                      const token = config ? getTokenDetails(config.tokenId) : null;
+                      return token ? (
+                        <span className="font-semibold text-primary">{token.symbol}</span>
+                      ) : (
+                        <span className="font-semibold text-primary">?</span>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{item.name}</h3>
+                    {(() => {
+                      const config = getTokenConfigForItem(item.id);
+                      const token = config ? getTokenDetails(config.tokenId) : null;
+                      return token && config ? (
+                        <p className="text-sm text-muted-foreground">
+                          {config.burnAmount} {token.symbol}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          No token configured
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   {item.description}
                 </p>
