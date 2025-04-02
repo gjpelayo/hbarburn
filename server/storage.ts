@@ -21,7 +21,8 @@ import {
   type ShippingInfo,
   type Shop,
   type InsertShop,
-  type UpdateShop
+  type UpdateShop,
+  type FulfillmentUpdate
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createHash } from 'crypto';
@@ -36,8 +37,10 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByAccountId(accountId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validateUserPassword(username: string, password: string): Promise<User | null>;
+  createOrGetWalletUser(accountId: string): Promise<User>;
   
   // Shop methods
   getShops(): Promise<Shop[]>;
@@ -133,6 +136,7 @@ export class MemStorage implements IStorage {
       username: 'admin',
       password: this.hashPassword('admin123'),
       email: 'admin@example.com',
+      accountId: null, // Admin will not use wallet login
       isAdmin: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -293,17 +297,50 @@ export class MemStorage implements IStorage {
       (user) => user.username === username,
     );
   }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
+  
+  async getUserByAccountId(accountId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.accountId === accountId,
+    );
+  }
+  
+  async createOrGetWalletUser(accountId: string): Promise<User> {
+    // Check if user already exists with this account ID
+    const existingUser = await this.getUserByAccountId(accountId);
+    if (existingUser) {
+      return existingUser;
+    }
+    
+    // Create a new user with the wallet account ID
     const id = this.currentUserId++;
-    const hashedPassword = this.hashPassword(insertUser.password);
     const now = new Date().toISOString();
     
     const user: User = { 
       id,
-      username: insertUser.username,
+      username: `wallet_${accountId.replace('.', '_')}`,
+      password: null, // No password for wallet users
+      email: null,
+      accountId,
+      isAdmin: false, // Wallet users are not admins by default
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.users.set(id, user);
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = this.currentUserId++;
+    const hashedPassword = insertUser.password ? this.hashPassword(insertUser.password) : null;
+    const now = new Date().toISOString();
+    
+    const user: User = { 
+      id,
+      username: insertUser.username!,  // Force non-null assertion since username should always be provided
       password: hashedPassword,
-      email: insertUser.email || null,
+      email: insertUser.email ?? null,  // Use nullish coalescing to ensure null not undefined
+      accountId: insertUser.accountId ?? null, // Use nullish coalescing to ensure null not undefined
       isAdmin: insertUser.isAdmin || false,
       createdAt: now,
       updatedAt: now
@@ -541,24 +578,20 @@ export class MemStorage implements IStorage {
     const now = new Date().toISOString();
     
     // Handle the fulfillment update
-    let fulfillmentUpdates = redemption.fulfillmentUpdates || [];
+    let fulfillmentUpdates: FulfillmentUpdate[] = Array.isArray(redemption.fulfillmentUpdates) ? 
+      [...redemption.fulfillmentUpdates] : [];
     
     // If there's a new fulfillment update, add it to the history
     if (data.fulfillmentUpdate) {
-      const newUpdate = {
+      const newUpdate: FulfillmentUpdate = {
         ...data.fulfillmentUpdate,
         timestamp: data.fulfillmentUpdate.timestamp || now
       };
       fulfillmentUpdates = [...fulfillmentUpdates, newUpdate];
     } 
     // If a complete replacement is provided (admin only), use that
-    else if (data.fulfillmentUpdates) {
-      fulfillmentUpdates = data.fulfillmentUpdates;
-    }
-    
-    // Ensure fulfillmentUpdates is an array
-    if (!Array.isArray(fulfillmentUpdates)) {
-      fulfillmentUpdates = [];
+    else if (data.fulfillmentUpdates && Array.isArray(data.fulfillmentUpdates)) {
+      fulfillmentUpdates = [...data.fulfillmentUpdates];
     }
     
     const updated: Redemption = {

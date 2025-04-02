@@ -66,9 +66,19 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         if (hashpackAccount) {
           const reconnected = await connectHashpack();
           if (reconnected.success && reconnected.accountId) {
-            setAccountId(reconnected.accountId);
-            setWalletType("hashpack");
-            return;
+            try {
+              // Authenticate with the backend
+              await apiRequest('POST', '/api/auth/wallet', { 
+                accountId: reconnected.accountId
+              });
+              
+              setAccountId(reconnected.accountId);
+              setWalletType("hashpack");
+              return;
+            } catch (authError) {
+              console.error("Authentication error on auto-reconnect:", authError);
+              // Continue to try the next wallet if authentication fails
+            }
           }
         }
         
@@ -77,9 +87,18 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         if (bladeAccount) {
           const reconnected = await connectBlade();
           if (reconnected.success && reconnected.accountId) {
-            setAccountId(reconnected.accountId);
-            setWalletType("blade");
-            return;
+            try {
+              // Authenticate with the backend
+              await apiRequest('POST', '/api/auth/wallet', { 
+                accountId: reconnected.accountId
+              });
+              
+              setAccountId(reconnected.accountId);
+              setWalletType("blade");
+              return;
+            } catch (authError) {
+              console.error("Authentication error on auto-reconnect:", authError);
+            }
           }
         }
       } catch (error) {
@@ -92,40 +111,55 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   
   const connectWallet = async (type: "hashpack" | "blade"): Promise<boolean> => {
     try {
+      let result;
       if (type === "hashpack") {
-        const result = await connectHashpack();
-        if (result.success && result.accountId) {
-          setAccountId(result.accountId);
-          setWalletType("hashpack");
-          toast({
-            title: "Wallet Connected",
-            description: `Connected to HashPack (${result.accountId})`,
-          });
-          return true;
-        } else {
-          toast({
-            title: "Connection Failed",
-            description: result.error || "Could not connect to HashPack",
-            variant: "destructive",
-          });
-        }
+        result = await connectHashpack();
       } else if (type === "blade") {
-        const result = await connectBlade();
-        if (result.success && result.accountId) {
-          setAccountId(result.accountId);
-          setWalletType("blade");
+        result = await connectBlade();
+      } else {
+        throw new Error("Unsupported wallet type");
+      }
+      
+      if (result.success && result.accountId) {
+        // Set local state
+        setAccountId(result.accountId);
+        setWalletType(type);
+        
+        try {
+          // Authenticate with the backend
+          await apiRequest('POST', '/api/auth/wallet', { 
+            accountId: result.accountId
+          });
+          
           toast({
             title: "Wallet Connected",
-            description: `Connected to Blade (${result.accountId})`,
+            description: `Connected to ${type === 'hashpack' ? 'HashPack' : 'Blade'} (${result.accountId})`,
           });
           return true;
-        } else {
+        } catch (authError) {
+          console.error("Authentication error:", authError);
+          // Disconnect the wallet if authentication fails
+          if (type === "hashpack") {
+            await disconnectHashpack();
+          } else if (type === "blade") {
+            await disconnectBlade();
+          }
+          setAccountId(null);
+          setWalletType(null);
+          
           toast({
-            title: "Connection Failed",
-            description: result.error || "Could not connect to Blade",
+            title: "Authentication Failed",
+            description: "Could not authenticate with the server",
             variant: "destructive",
           });
+          return false;
         }
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: result.error || `Could not connect to ${type === 'hashpack' ? 'HashPack' : 'Blade'}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Wallet connection error:", error);
@@ -145,6 +179,14 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         await disconnectHashpack();
       } else if (walletType === "blade") {
         await disconnectBlade();
+      }
+      
+      try {
+        // Logout from backend
+        await apiRequest('POST', '/api/auth/logout');
+      } catch (logoutError) {
+        console.error("Server logout error:", logoutError);
+        // Continue with local logout even if server logout fails
       }
       
       setAccountId(null);

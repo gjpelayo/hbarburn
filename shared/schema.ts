@@ -2,12 +2,13 @@ import { pgTable, text, serial, integer, json, timestamp, varchar, boolean } fro
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table with admin flag
+// Users table with admin flag and accountId for wallet-based auth
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  username: text("username").unique(),
+  password: text("password"),
   email: text("email"),
+  accountId: text("account_id").unique(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
@@ -17,6 +18,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   email: true,
+  accountId: true,
   isAdmin: true,
 });
 
@@ -188,6 +190,11 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+// Wallet authentication schema
+export const walletAuthSchema = z.object({
+  accountId: z.string().min(1, "Account ID is required"),
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -213,3 +220,4 @@ export type Redemption = typeof redemptions.$inferSelect;
 export type InsertRedemption = z.infer<typeof insertRedemptionSchema>;
 export type UpdateRedemption = z.infer<typeof updateRedemptionSchema>;
 export type LoginCredentials = z.infer<typeof loginSchema>;
+export type WalletAuthCredentials = z.infer<typeof walletAuthSchema>;

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { 
   loginSchema,
+  walletAuthSchema,
   updateRedemptionSchema, 
   insertRedemptionSchema,
   insertPhysicalItemSchema,
@@ -14,7 +15,8 @@ import {
   updateTokenConfigurationSchema,
   insertShopSchema,
   updateShopSchema,
-  type User
+  type User,
+  type WalletAuthCredentials
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -52,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication Routes
   
-  // Login route
+  // Username/password login route (for admin)
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
@@ -81,6 +83,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+  
+  // Wallet-based authentication route
+  app.post("/api/auth/wallet", async (req, res) => {
+    try {
+      const { accountId } = walletAuthSchema.parse(req.body);
+      
+      // Create or get a user based on the wallet's account ID
+      const user = await storage.createOrGetWalletUser(accountId);
+      
+      // Store user in session
+      req.session.user = user;
+      req.session.isLoggedIn = true;
+      
+      // Don't return password in response
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Wallet login error:", error);
+      
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: validationError.details 
+        });
+      }
+      
+      res.status(500).json({ message: "Wallet login failed" });
     }
   });
   
@@ -483,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add admin info to the fulfillment update
       if (validatedData.fulfillmentUpdate && req.session.user) {
-        validatedData.fulfillmentUpdate.performedBy = req.session.user.username;
+        validatedData.fulfillmentUpdate.performedBy = req.session.user.username || 'Admin';
         validatedData.fulfillmentUpdate.timestamp = new Date().toISOString();
       }
       
