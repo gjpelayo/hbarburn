@@ -20,9 +20,11 @@ interface RedemptionContextType {
   shippingInfo: ShippingInfo | null;
   setShippingInfo: (info: ShippingInfo) => void;
   orderId: string | null;
+  setOrderId: (id: string | null) => void;
   transactionId: string | null;
   burnTransactionStatus: BurnTransactionStatus;
   executeBurnTransaction: () => Promise<boolean>;
+  createRedemptionOrder: () => Promise<boolean>;
   resetRedemption: () => void;
 }
 
@@ -30,7 +32,7 @@ const RedemptionContext = createContext<RedemptionContextType | undefined>(undef
 
 export function RedemptionContextProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { burnTokens } = useWallet();
+  const { burnTokens, accountId } = useWallet();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
@@ -40,6 +42,49 @@ export function RedemptionContextProvider({ children }: { children: ReactNode })
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [burnTransactionStatus, setBurnTransactionStatus] = useState<BurnTransactionStatus>("idle");
   
+  // Create a redemption order before starting the burn transaction
+  const createRedemptionOrder = useCallback(async (): Promise<boolean> => {
+    if (!selectedToken || !shippingInfo) {
+      toast({
+        title: "Missing Information",
+        description: "Token selection and shipping information are required",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    try {
+      // Submit the redemption data to create an order
+      const response = await apiRequest("POST", "/api/redemptions", {
+        tokenId: selectedToken.tokenId,
+        burnAmount,
+        shippingInfo,
+        accountId: accountId // Include the accountId from wallet context
+      });
+      
+      // Store the order ID from the response
+      if (response && response.orderId) {
+        setOrderId(response.orderId);
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create redemption order. Missing order ID in response.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error creating redemption order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create redemption order. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [selectedToken, burnAmount, shippingInfo, accountId, toast]);
+  
   const executeBurnTransaction = useCallback(async (): Promise<boolean> => {
     if (!selectedToken) {
       toast({
@@ -47,6 +92,26 @@ export function RedemptionContextProvider({ children }: { children: ReactNode })
         description: "No token selected for burning",
         variant: "destructive"
       });
+      return false;
+    }
+    
+    if (!orderId) {
+      toast({
+        title: "Error",
+        description: "No redemption order created. Please try again.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    // Validate token balance before burning
+    if (selectedToken.balance < burnAmount) {
+      toast({
+        title: "Insufficient Balance",
+        description: `You have ${selectedToken.balance} tokens available but are trying to burn ${burnAmount}.`,
+        variant: "destructive"
+      });
+      setBurnTransactionStatus("failed");
       return false;
     }
     
@@ -73,10 +138,15 @@ export function RedemptionContextProvider({ children }: { children: ReactNode })
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Update the redemption order with the transaction ID
-      await apiRequest("PATCH", `/api/redemptions/${orderId}`, {
-        transactionId: txId,
-        status: "completed"
-      });
+      try {
+        await apiRequest("PATCH", `/api/redemptions/${orderId}`, {
+          transactionId: txId,
+          status: "completed"
+        });
+      } catch (updateError) {
+        console.error("Error updating redemption with transaction ID:", updateError);
+        // Continue even if update fails, as the burn transaction was successful
+      }
       
       // Update status to completing
       setBurnTransactionStatus("completing");
@@ -120,9 +190,11 @@ export function RedemptionContextProvider({ children }: { children: ReactNode })
         shippingInfo,
         setShippingInfo,
         orderId,
+        setOrderId,
         transactionId,
         burnTransactionStatus,
         executeBurnTransaction,
+        createRedemptionOrder,
         resetRedemption,
       }}
     >
