@@ -181,7 +181,7 @@ export default function PhysicalItemsPage() {
   
   return (
     <AdminLayout title="Physical Items">
-      <div className="mb-6">
+      <div className="mb-6 max-w-[100vw] overflow-hidden px-2">
         <h2 className="text-lg font-semibold mb-1.5">Manage Physical Items</h2>
         <p className="text-sm text-muted-foreground mb-3 max-w-2xl">
           Add, edit or remove physical items available for token redemption
@@ -213,7 +213,7 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-wrap justify-center gap-6 max-w-[1200px] mx-auto">
+        <div className="flex flex-wrap justify-center gap-6 max-w-[1200px] mx-auto px-4 overflow-hidden">
           {physicalItems.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow w-[320px]">
               {item.imageUrl && (
