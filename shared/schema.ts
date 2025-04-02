@@ -132,6 +132,26 @@ export const updateRedemptionSchema = z.object({
   notes: z.string().optional(),
 });
 
+// Shops table
+export const shops = pgTable("shops", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+});
+
+export const insertShopSchema = createInsertSchema(shops).pick({
+  name: true,
+  description: true,
+  imageUrl: true,
+  isActive: true,
+});
+
+export const updateShopSchema = insertShopSchema.partial();
+
 // Admin authentication schemas
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -141,6 +161,10 @@ export const loginSchema = z.object({
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Shop = typeof shops.$inferSelect;
+export type InsertShop = z.infer<typeof insertShopSchema>;
+export type UpdateShop = z.infer<typeof updateShopSchema>;
 
 export type PhysicalItem = typeof physicalItems.$inferSelect;
 export type InsertPhysicalItem = z.infer<typeof insertPhysicalItemSchema>;

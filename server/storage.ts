@@ -4,6 +4,7 @@ import {
   redemptions,
   physicalItems,
   tokenConfigurations,
+  shops,
   type User, 
   type Token,
   type PhysicalItem,
@@ -17,7 +18,10 @@ import {
   type UpdateTokenConfiguration, 
   type Redemption, 
   type UpdateRedemption,
-  type ShippingInfo
+  type ShippingInfo,
+  type Shop,
+  type InsertShop,
+  type UpdateShop
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createHash } from 'crypto';
@@ -34,6 +38,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   validateUserPassword(username: string, password: string): Promise<User | null>;
+  
+  // Shop methods
+  getShops(): Promise<Shop[]>;
+  getActiveShops(): Promise<Shop[]>;
+  getShop(id: number): Promise<Shop | undefined>;
+  createShop(shop: InsertShop): Promise<Shop>;
+  updateShop(id: number, data: UpdateShop): Promise<Shop | undefined>;
+  deleteShop(id: number): Promise<boolean>;
   
   // Physical Item methods
   getPhysicalItems(): Promise<PhysicalItem[]>;
@@ -81,9 +93,11 @@ export class MemStorage implements IStorage {
   private physicalItems: Map<number, PhysicalItem>;
   private tokenConfigurations: Map<number, TokenConfiguration>;
   private redemptions: Map<string, Redemption>;
+  private shops: Map<number, Shop>;
   private currentUserId: number;
   private currentPhysicalItemId: number;
   private currentTokenConfigId: number;
+  private currentShopId: number;
   public sessionStore: session.Store;
 
   constructor() {
@@ -92,9 +106,11 @@ export class MemStorage implements IStorage {
     this.physicalItems = new Map();
     this.tokenConfigurations = new Map();
     this.redemptions = new Map();
+    this.shops = new Map();
     this.currentUserId = 1;
     this.currentPhysicalItemId = 1;
     this.currentTokenConfigId = 1;
+    this.currentShopId = 1;
     
     // Create memory session store
     const MemoryStore = createMemoryStore(session);
@@ -156,6 +172,41 @@ export class MemStorage implements IStorage {
     
     physicalItems.forEach(item => {
       this.physicalItems.set(item.id, item);
+    });
+    
+    // Seed shops
+    const shops: Shop[] = [
+      {
+        id: this.currentShopId++,
+        name: "Limited Edition Collection",
+        description: "Exclusive items available for token redemption. Get them while supplies last!",
+        imageUrl: "https://example.com/limited-edition.jpg",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: this.currentShopId++,
+        name: "Hedera Merchandise",
+        description: "Official Hedera merchandise available for token redemption.",
+        imageUrl: "https://example.com/hedera-merchandise.jpg",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: this.currentShopId++,
+        name: "Community Rewards",
+        description: "Redeem your community tokens for exclusive physical items.",
+        imageUrl: "https://example.com/community-rewards.jpg",
+        isActive: false, // This shop is not active yet
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+    
+    shops.forEach(shop => {
+      this.shops.set(shop.id, shop);
     });
     
     // Seed tokens
@@ -485,6 +536,55 @@ export class MemStorage implements IStorage {
     
     this.redemptions.set(orderId, updated);
     return updated;
+  }
+
+  // Shop methods
+  async getShops(): Promise<Shop[]> {
+    return Array.from(this.shops.values());
+  }
+
+  async getActiveShops(): Promise<Shop[]> {
+    return Array.from(this.shops.values()).filter(shop => shop.isActive);
+  }
+
+  async getShop(id: number): Promise<Shop | undefined> {
+    return this.shops.get(id);
+  }
+
+  async createShop(shop: InsertShop): Promise<Shop> {
+    const id = this.currentShopId++;
+    const now = new Date().toISOString();
+    
+    const newShop: Shop = {
+      id,
+      name: shop.name,
+      description: shop.description,
+      imageUrl: shop.imageUrl || null,
+      isActive: shop.isActive ?? true,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.shops.set(id, newShop);
+    return newShop;
+  }
+
+  async updateShop(id: number, data: UpdateShop): Promise<Shop | undefined> {
+    const shop = this.shops.get(id);
+    if (!shop) return undefined;
+    
+    const updated: Shop = {
+      ...shop,
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    
+    this.shops.set(id, updated);
+    return updated;
+  }
+
+  async deleteShop(id: number): Promise<boolean> {
+    return this.shops.delete(id);
   }
 }
 

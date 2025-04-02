@@ -12,6 +12,8 @@ import {
   updateTokenSchema,
   insertTokenConfigurationSchema,
   updateTokenConfigurationSchema,
+  insertShopSchema,
+  updateShopSchema,
   type User
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -539,6 +541,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching tokens:", error);
       res.status(500).json({ message: "Failed to fetch tokens" });
+    }
+  });
+  
+  // Shop API Routes
+  
+  // Get all active shops
+  app.get("/api/shops", async (req, res) => {
+    try {
+      const shops = await storage.getActiveShops();
+      res.json(shops);
+    } catch (error) {
+      console.error("Error fetching shops:", error);
+      res.status(500).json({ message: "Failed to fetch shops" });
+    }
+  });
+  
+  // Get a single shop
+  app.get("/api/shops/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const shop = await storage.getShop(id);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      // Only return active shops to public users
+      if (!shop.isActive) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      res.json(shop);
+    } catch (error) {
+      console.error("Error fetching shop:", error);
+      res.status(500).json({ message: "Failed to fetch shop" });
+    }
+  });
+  
+  // Admin Shop API Routes
+  
+  // Get all shops (including inactive)
+  app.get("/api/admin/shops", isAdmin, async (req, res) => {
+    try {
+      const shops = await storage.getShops();
+      res.json(shops);
+    } catch (error) {
+      console.error("Error fetching shops:", error);
+      res.status(500).json({ message: "Failed to fetch shops" });
+    }
+  });
+  
+  // Create a new shop
+  app.post("/api/admin/shops", isAdmin, async (req, res) => {
+    try {
+      const validatedData = insertShopSchema.parse(req.body);
+      const shop = await storage.createShop(validatedData);
+      res.status(201).json(shop);
+    } catch (error) {
+      console.error("Error creating shop:", error);
+      
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: validationError.details 
+        });
+      }
+      
+      res.status(500).json({ message: "Failed to create shop" });
+    }
+  });
+  
+  // Update a shop
+  app.patch("/api/admin/shops/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const validatedData = updateShopSchema.parse(req.body);
+      const updated = await storage.updateShop(id, validatedData);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating shop:", error);
+      
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: validationError.details 
+        });
+      }
+      
+      res.status(500).json({ message: "Failed to update shop" });
+    }
+  });
+  
+  // Delete a shop
+  app.delete("/api/admin/shops/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const deleted = await storage.deleteShop(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting shop:", error);
+      res.status(500).json({ message: "Failed to delete shop" });
     }
   });
   

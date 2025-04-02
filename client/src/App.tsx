@@ -7,6 +7,7 @@ import { RedemptionContextProvider } from "./context/RedemptionContext";
 import { AdminProvider } from "./hooks/use-admin";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import Shop from "@/pages/shop";
 
 // Admin pages
 import AdminAuthPage from "@/pages/admin/auth-page";
@@ -15,12 +16,14 @@ import PhysicalItemsPage from "@/pages/admin/physical-items";
 import TokensPage from "@/pages/admin/tokens";
 import TokenConfigurationsPage from "@/pages/admin/token-configurations";
 import RedemptionsPage from "@/pages/admin/redemptions";
+import ShopsPage from "@/pages/admin/shops";
 
 function Router() {
   return (
     <Switch>
       {/* Public Routes */}
       <Route path="/" component={Home} />
+      <Route path="/shop/:shopId" component={Shop} />
       
       {/* Admin Routes */}
       <Route path="/admin/auth" component={AdminAuthPage} />
@@ -29,6 +32,7 @@ function Router() {
       <Route path="/admin/tokens" component={TokensPage} />
       <Route path="/admin/token-configurations" component={TokenConfigurationsPage} />
       <Route path="/admin/redemptions" component={RedemptionsPage} />
+      <Route path="/admin/shops" component={ShopsPage} />
       
       {/* 404 Route */}
       <Route component={NotFound} />

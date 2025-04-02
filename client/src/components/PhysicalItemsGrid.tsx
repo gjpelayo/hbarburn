@@ -46,9 +46,18 @@ const PHYSICAL_ITEMS: PhysicalItem[] = [
   }
 ];
 
-export function PhysicalItemsGrid({ onItemSelect }: { onItemSelect: (item: PhysicalItem) => void }) {
+export function PhysicalItemsGrid({ 
+  onItemSelect, 
+  physicalItems 
+}: { 
+  onItemSelect: (item: PhysicalItem) => void;
+  physicalItems?: PhysicalItem[];
+}) {
   const { isConnected } = useWallet();
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  
+  // Use provided items or fall back to default items
+  const items = physicalItems || PHYSICAL_ITEMS;
   
   const handleSelectItem = (item: PhysicalItem) => {
     setSelectedItem(item.id);
@@ -63,7 +72,7 @@ export function PhysicalItemsGrid({ onItemSelect }: { onItemSelect: (item: Physi
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {PHYSICAL_ITEMS.map((item) => (
+        {items.map((item) => (
           <Card 
             key={item.id} 
             className={`overflow-hidden transition-all ${selectedItem === item.id ? 'ring-2 ring-primary' : ''}`}
