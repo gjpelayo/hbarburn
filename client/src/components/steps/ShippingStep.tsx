@@ -11,6 +11,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { validateAddressBasic, Address } from "@/lib/addressValidation";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Check, AlertCircle, Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   firstName: z.string().min(2, {
@@ -75,6 +79,13 @@ export function ShippingStep({
   onContinue: () => void 
 }) {
   const { shippingInfo, setShippingInfo } = useRedemption();
+  const [isValidatingAddress, setIsValidatingAddress] = useState(false);
+  const [addressValidationResult, setAddressValidationResult] = useState<{
+    isValid: boolean;
+    message?: string;
+    suggestions?: string[];
+  } | null>(null);
+  const [overrideValidation, setOverrideValidation] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -92,7 +103,46 @@ export function ShippingStep({
     },
   });
 
-  const onSubmit = (values: FormValues) => {
+  // Function to validate address
+  const validateAddress = async (address: Address) => {
+    setIsValidatingAddress(true);
+    try {
+      const result = await validateAddressBasic(address);
+      setAddressValidationResult(result);
+      return result.isValid;
+    } catch (error) {
+      console.error("Error validating address:", error);
+      setAddressValidationResult({
+        isValid: false,
+        message: "An error occurred while validating the address."
+      });
+      return false;
+    } finally {
+      setIsValidatingAddress(false);
+    }
+  };
+
+  const onSubmit = async (values: FormValues) => {
+    // Validate address before proceeding (unless override is active)
+    if (!overrideValidation && (!addressValidationResult || !addressValidationResult.isValid)) {
+      const addressData: Address = {
+        address: values.address,
+        address2: values.address2,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country
+      };
+      
+      const isValid = await validateAddress(addressData);
+      
+      if (!isValid) {
+        // If validation fails, stop here unless user has chosen to override
+        return;
+      }
+    }
+    
+    // Either address is valid or user chose to override validation
     setShippingInfo(values);
     onContinue();
   };
@@ -262,14 +312,109 @@ export function ShippingStep({
                 </FormItem>
               )}
             />
+
+            {/* Validate address button */}
+            <div className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isValidatingAddress}
+                onClick={() => {
+                  const formValues = form.getValues();
+                  const addressData: Address = {
+                    address: formValues.address,
+                    address2: formValues.address2,
+                    city: formValues.city,
+                    state: formValues.state,
+                    zip: formValues.zip,
+                    country: formValues.country
+                  };
+                  validateAddress(addressData);
+                }}
+              >
+                {isValidatingAddress ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Validating...
+                  </>
+                ) : (
+                  <>Validate Address</>
+                )}
+              </Button>
+              <FormDescription className="text-center mt-1 text-xs">
+                Click to validate your address before submitting
+              </FormDescription>
+            </div>
             
-            <div className="mt-6 flex justify-end space-x-3">
+            {/* Address validation feedback */}
+            {addressValidationResult && (
+              <Alert variant={addressValidationResult.isValid ? "default" : "destructive"} className="mt-4">
+                <div className="flex items-start">
+                  {addressValidationResult.isValid ? (
+                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
+                  )}
+                  <div>
+                    <AlertTitle>
+                      {addressValidationResult.isValid 
+                        ? "Address Validation Successful" 
+                        : "Address Validation Failed"}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {addressValidationResult.message}
+                      
+                      {addressValidationResult.suggestions && addressValidationResult.suggestions.length > 0 && (
+                        <ul className="mt-2 ml-4 list-disc">
+                          {addressValidationResult.suggestions.map((suggestion, index) => (
+                            <li key={index}>{suggestion}</li>
+                          ))}
+                        </ul>
+                      )}
+                      
+                      {/* Manual override option for failed validation */}
+                      {!addressValidationResult.isValid && (
+                        <div className="mt-4 pt-3 border-t border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="override-validation"
+                              checked={overrideValidation}
+                              onChange={(e) => setOverrideValidation(e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/80"
+                            />
+                            <label htmlFor="override-validation" className="text-sm font-medium">
+                              I confirm my address is correct and want to proceed anyway
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </div>
+                </div>
+              </Alert>
+            )}
+            
+            <div className="mt-6 flex justify-between items-center">
               <Button type="button" variant="outline" onClick={onBack}>
                 Back
               </Button>
-              <Button type="submit">
-                Continue to Confirmation
-              </Button>
+              
+              <div className="flex items-center space-x-3">
+                {isValidatingAddress && (
+                  <div className="flex items-center text-sm text-neutral-500">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Validating address...
+                  </div>
+                )}
+                <Button 
+                  type="submit" 
+                  disabled={isValidatingAddress || (addressValidationResult !== null && !addressValidationResult.isValid && !overrideValidation)}
+                >
+                  Continue to Confirmation
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
