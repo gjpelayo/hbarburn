@@ -103,7 +103,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       return;
     },
     onSuccess: () => {
+      // Clear all admin-related query data
       queryClient.setQueryData(["/api/admin/user"], null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin"] });
+      
+      // Also invalidate any other relevant queries that might have user-specific data
+      queryClient.invalidateQueries({ queryKey: ["/api"] });
+      
       toast({
         title: "Logout successful",
         description: "You have been logged out successfully.",

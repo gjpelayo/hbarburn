@@ -86,6 +86,13 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/admin/logout", (req, res, next) => {
+    // Clear session user data
+    if (req.session) {
+      req.session.user = undefined;
+      req.session.isLoggedIn = false;
+    }
+    
+    // Logout from passport
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);

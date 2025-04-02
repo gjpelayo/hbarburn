@@ -206,8 +206,12 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         // Logout from backend
         await apiRequest('POST', '/api/auth/logout');
         
-        // Invalidate the admin user query so it reflects the logout
+        // Clear all admin-related query data
         queryClient.setQueryData(['/api/admin/user'], null);
+        queryClient.invalidateQueries({ queryKey: ['/api/admin'] });
+        
+        // Also invalidate any other relevant queries that might have user-specific data
+        queryClient.invalidateQueries({ queryKey: ['/api'] });
       } catch (logoutError) {
         console.error("Server logout error:", logoutError);
         // Continue with local logout even if server logout fails
