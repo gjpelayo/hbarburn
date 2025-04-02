@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/context/WalletContext";
 import { useRedemption } from "@/context/RedemptionContext";
-import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProgressSteps, Step } from "@/components/ui/progress-steps";
 import { PhysicalItemsGrid, PhysicalItem, PHYSICAL_ITEMS } from "@/components/PhysicalItemsGrid";
@@ -83,8 +82,6 @@ export default function Home() {
   return (
     <>
       <WalletConnectHeader />
-      <Header />
-      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Message */}
         <div className="text-center mb-8">
