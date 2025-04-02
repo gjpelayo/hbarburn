@@ -245,19 +245,17 @@ export default function PhysicalItemsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 h-[60px] overflow-hidden">
-                  {item.description && item.description.length > 120 
-                    ? `${item.description.substring(0, 120)}...` 
-                    : item.description}
+                <p className="text-sm text-muted-foreground mb-4 h-[60px] overflow-y-auto">
+                  {item.description}
                 </p>
                 <div className="flex justify-between items-center text-sm">
-                  <div className="text-muted-foreground max-w-[150px] overflow-hidden text-ellipsis">
+                  <div className="text-muted-foreground w-[150px] overflow-hidden">
                     {(() => {
                       const config = getTokenConfigForItem(item.id);
                       const token = config ? getTokenDetails(config.tokenId) : null;
                       
                       return token && config ? (
-                        <span className="truncate inline-block">Token: {token.tokenId}</span>
+                        <span className="truncate inline-block w-full" title={token.tokenId}>Token: {token.tokenId}</span>
                       ) : (
                         <span className="italic">No token assigned</span>
                       );
