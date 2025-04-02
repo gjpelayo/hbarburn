@@ -12,16 +12,22 @@ import {
 
 export function WalletConnectHeader() {
   const { isConnected, accountId, connectWallet, disconnectWallet } = useWallet();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false);
   
   const handleConnectHashpack = async () => {
     await connectWallet("hashpack");
-    setIsDialogOpen(false);
+    setIsConnectDialogOpen(false);
   };
   
   const handleConnectBlade = async () => {
     await connectWallet("blade");
-    setIsDialogOpen(false);
+    setIsConnectDialogOpen(false);
+  };
+  
+  const handleDisconnect = () => {
+    disconnectWallet();
+    setIsDisconnectDialogOpen(false);
   };
   
   return (
@@ -54,7 +60,7 @@ export function WalletConnectHeader() {
           
           <div className="flex items-center gap-2">
             {!isConnected ? (
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="default" className="bg-primary text-white">
                     Connect Wallet
@@ -97,27 +103,41 @@ export function WalletConnectHeader() {
                 </DialogContent>
               </Dialog>
             ) : (
-              <>
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-2 border-green-500 text-green-700 bg-green-50 hover:bg-green-100"
-                  size="sm"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <path d="m9 12 2 2 4-4"/>
-                  </svg>
-                  Connected
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  onClick={disconnectWallet}
-                  size="sm"
-                  className="text-neutral-600 hover:text-neutral-900"
-                >
-                  Disconnect
-                </Button>
-              </>
+              <Dialog open={isDisconnectDialogOpen} onOpenChange={setIsDisconnectDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2 border-green-500 text-green-700 bg-green-50 hover:bg-green-100"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600">
+                      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                      <path d="m9 12 2 2 4-4"/>
+                    </svg>
+                    <span className="truncate max-w-[140px]">{accountId}</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Wallet Connected</DialogTitle>
+                    <DialogDescription>
+                      Your wallet is currently connected to the Hedera network.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="pt-4 pb-2">
+                    <div className="mb-4 p-3 bg-neutral-50 rounded-md border">
+                      <div className="text-xs text-neutral-500 mb-1">Connected Account</div>
+                      <div className="text-neutral-800 font-medium">{accountId}</div>
+                    </div>
+                    <Button 
+                      onClick={handleDisconnect}
+                      variant="destructive"
+                      className="w-full"
+                    >
+                      Disconnect Wallet
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         </div>
