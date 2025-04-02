@@ -98,67 +98,18 @@ export default function Home() {
                 size="lg"
                 className="px-8 gap-2"
               >
-                <Lock className="w-4 h-4" />
-                Admin Dashboard
+                <ShoppingBag className="w-4 h-4" />
+                Manage My Shop
               </Button>
             ) : (
-              <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    size="lg"
-                    className="px-8 gap-2"
-                  >
-                    <Lock className="w-4 h-4" />
-                    Admin Login
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Admin Login</DialogTitle>
-                    <DialogDescription>
-                      Access the admin dashboard to manage shops, physical items, and redemption orders.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleLogin}>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input
-                          id="username"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="admin"
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button 
-                        type="submit" 
-                        disabled={loginMutation.isPending}
-                        className="w-full"
-                      >
-                        {loginMutation.isPending && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        )}
-                        Log In
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={() => navigate("/admin")}
+                size="lg"
+                className="px-8 gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Setup Shop
+              </Button>
             )}
           </div>
         </div>

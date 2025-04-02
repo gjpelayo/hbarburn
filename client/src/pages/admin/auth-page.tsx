@@ -1,25 +1,17 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { useAdmin } from "@/hooks/use-admin";
+import { useWallet } from "@/context/WalletContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
-
-const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type FormValues = z.infer<typeof loginSchema>;
+import { Loader2, Wallet, CheckCircle, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AdminAuthPage() {
   const [location, navigate] = useLocation();
-  const { user, loginMutation } = useAdmin();
+  const { user } = useAdmin();
+  const { isConnected, accountId, connectWallet, disconnectWallet } = useWallet();
+  const [isConnecting, setIsConnecting] = useState(false);
   
   // If user is already logged in, redirect to admin dashboard
   if (user) {
@@ -27,21 +19,36 @@ export default function AdminAuthPage() {
     return null;
   }
   
-  // Create form
-  const form = useForm<FormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
-  });
+  const handleConnectHashpack = async () => {
+    setIsConnecting(true);
+    try {
+      await connectWallet("hashpack");
+      // After connecting the wallet, we would typically verify on the server
+      // that this wallet has admin privileges, then automatically redirect
+      navigate("/admin");
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
   
-  const onSubmit = (values: FormValues) => {
-    loginMutation.mutate(values, {
-      onSuccess: () => {
-        navigate("/admin");
-      },
-    });
+  const handleConnectBlade = async () => {
+    setIsConnecting(true);
+    try {
+      await connectWallet("blade");
+      // After connecting the wallet, we would typically verify on the server
+      // that this wallet has admin privileges, then automatically redirect
+      navigate("/admin");
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+  
+  const handleDisconnect = () => {
+    disconnectWallet();
   };
   
   return (
@@ -49,58 +56,90 @@ export default function AdminAuthPage() {
       <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-2">
         <Card className="w-full max-w-md mx-auto">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
+            <CardTitle className="text-2xl font-bold">Setup Your Shop</CardTitle>
             <CardDescription>
-              Sign in to manage your token redemption platform
+              Connect your wallet to manage your token redemption platform
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="admin" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="********" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
-                  {loginMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Logging in...
-                    </>
+          <CardContent className="space-y-4">
+            {!isConnected ? (
+              <>
+                <Alert className="mb-4 bg-blue-50 text-blue-800 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription>
+                    Connect your Hedera wallet to access the shop management dashboard.
+                  </AlertDescription>
+                </Alert>
+                
+                <Button 
+                  onClick={handleConnectHashpack}
+                  className="w-full flex justify-center items-center gap-2 py-6 text-base"
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    "Login"
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M7 7h.01" />
+                      <path d="M17 7h.01" />
+                      <path d="M7 17h.01" />
+                      <path d="M17 17h.01" />
+                    </svg>
                   )}
+                  Connect with HashPack
                 </Button>
-              </form>
-            </Form>
+                
+                <Button 
+                  onClick={handleConnectBlade}
+                  variant="outline"
+                  className="w-full flex justify-center items-center gap-2 py-6 text-base"
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.5" />
+                      <path d="M20 16V8a2 2 0 0 0-2-2h-2" />
+                      <path d="M12 12h6" />
+                    </svg>
+                  )}
+                  Connect with Blade
+                </Button>
+              </>
+            ) : (
+              <>
+                <Alert className="mb-4 bg-green-50 text-green-800 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription>
+                    Wallet connected successfully! You can now proceed to the admin dashboard.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="mb-4 p-4 bg-neutral-50 rounded-md border">
+                  <div className="text-sm text-neutral-500 mb-1">Connected Account</div>
+                  <div className="text-neutral-800 font-semibold break-all">{accountId}</div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => navigate("/admin")}
+                    className="w-full"
+                  >
+                    Go to Dashboard
+                  </Button>
+                  <Button 
+                    onClick={handleDisconnect}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
-          <CardFooter className="flex justify-center border-t p-4">
-            <p className="text-sm text-muted-foreground">
-              Default login: admin / admin123
-            </p>
-          </CardFooter>
         </Card>
         
         <div className="hidden lg:flex flex-col justify-center">
@@ -130,9 +169,9 @@ export default function AdminAuthPage() {
               </p>
             </div>
             <div className="flex flex-col gap-2 rounded-lg border p-4">
-              <h3 className="font-semibold">System Analytics</h3>
+              <h3 className="font-semibold">Create Shops</h3>
               <p className="text-sm text-muted-foreground">
-                Track token burn statistics and monitor platform performance.
+                Design public storefronts where users can redeem your tokens for physical items.
               </p>
             </div>
           </div>
