@@ -213,7 +213,7 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-[1200px]">
           {physicalItems.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow">
               {item.imageUrl && (
@@ -232,7 +232,7 @@ export default function PhysicalItemsPage() {
                     const config = getTokenConfigForItem(item.id);
                     const token = config ? getTokenDetails(config.tokenId) : null;
                     
-                    return token ? (
+                    return token && config ? (
                       <span className="text-sm font-normal text-muted-foreground">
                         {config.burnAmount} {token.symbol}
                       </span>
@@ -256,7 +256,7 @@ export default function PhysicalItemsPage() {
                       const config = getTokenConfigForItem(item.id);
                       const token = config ? getTokenDetails(config.tokenId) : null;
                       
-                      return token ? (
+                      return token && config ? (
                         <span>Token: {token.tokenId}</span>
                       ) : (
                         <span className="italic">No token assigned</span>
