@@ -215,7 +215,7 @@ export default function PhysicalItemsPage() {
       ) : (
         <div className="flex flex-wrap justify-center gap-6 max-w-[1200px] mx-auto px-4 overflow-hidden">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow w-[320px]">
+            <Card key={item.id} className="hover:shadow-md transition-shadow w-[320px] h-auto">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
@@ -245,7 +245,7 @@ export default function PhysicalItemsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 h-[60px] overflow-y-auto">
+                <p className="text-sm text-muted-foreground mb-4 min-h-[80px]">
                   {item.description}
                 </p>
                 <div className="flex justify-between items-center text-sm">
