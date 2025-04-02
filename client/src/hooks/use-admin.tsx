@@ -43,7 +43,7 @@ type AdminContextType = {
   deleteTokenConfigurationMutation: UseMutationResult<void, Error, number>;
 };
 
-export const AdminContext = createContext<AdminContextType | null>(null);
+const AdminContext = createContext<AdminContextType | null>(null);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
@@ -53,9 +53,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
+    refetch,
   } = useQuery<User | undefined, Error>({
     queryKey: ["/api/admin/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    // Without this, the hook will cache the 401 response and not try to refetch
+    // when the user logs in via wallet
+    staleTime: 0,
+    retryOnMount: true,
+    refetchOnWindowFocus: true,
   });
   
   // Login mutation

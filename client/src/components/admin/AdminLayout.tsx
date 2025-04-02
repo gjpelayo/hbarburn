@@ -65,16 +65,18 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         <div className="py-4">
           <nav className="space-y-1 px-2">
             {navigationItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <a className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  location === item.href 
-                    ? "bg-primary text-primary-foreground" 
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}>
-                  {item.icon}
-                  {item.label}
-                </a>
-              </Link>
+              <div key={item.href}>
+                <Link href={item.href}>
+                  <div className={`cursor-pointer flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                    location === item.href 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  }`}>
+                    {item.icon}
+                    {item.label}
+                  </div>
+                </Link>
+              </div>
             ))}
           </nav>
         </div>

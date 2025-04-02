@@ -18,8 +18,8 @@ import {
   burnTokensWithBlade 
 } from "@/lib/blade";
 import { Token } from "@/types";
-import { useQuery, useMutation, QueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type WalletType = "hashpack" | "blade" | null;
 
@@ -84,6 +84,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
                 accountId: reconnected.accountId
               });
               
+              // Invalidate the admin user query so it refetches with new authentication
+              queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
+              
               setAccountId(reconnected.accountId);
               setWalletType("hashpack");
               return;
@@ -104,6 +107,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
               await apiRequest('POST', '/api/auth/wallet', { 
                 accountId: reconnected.accountId
               });
+              
+              // Invalidate the admin user query so it refetches with new authentication
+              queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
               
               setAccountId(reconnected.accountId);
               setWalletType("blade");
@@ -142,6 +148,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
           await apiRequest('POST', '/api/auth/wallet', { 
             accountId: result.accountId
           });
+          
+          // Invalidate the admin user query so it refetches with new authentication
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
           
           toast({
             title: "Wallet Connected",
@@ -196,6 +205,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       try {
         // Logout from backend
         await apiRequest('POST', '/api/auth/logout');
+        
+        // Invalidate the admin user query so it reflects the logout
+        queryClient.setQueryData(['/api/admin/user'], null);
       } catch (logoutError) {
         console.error("Server logout error:", logoutError);
         // Continue with local logout even if server logout fails
