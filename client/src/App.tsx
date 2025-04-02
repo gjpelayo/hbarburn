@@ -17,7 +17,7 @@ import PhysicalItemsPage from "@/pages/admin/physical-items";
 import TokensPage from "@/pages/admin/tokens";
 import TokenConfigurationsPage from "@/pages/admin/token-configurations";
 import RedemptionsPage from "@/pages/admin/redemptions";
-import ShopsPageNew from "@/pages/admin/shops-new";
+import ShopsPageNew from "@/pages/admin/shops-new-fixed";
 import PaymentMethodsPage from "@/pages/admin/payment-methods";
 
 function Router() {

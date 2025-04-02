@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PlusCircle, Pencil, Trash, RefreshCw } from "lucide-react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,58 +187,51 @@ export default function ShopsPage() {
     return true; // "all" filter
   }) : [];
 
-  // If data is loading, show skeletons
-  if (isLoading) {
-    return (
-      <div className="container mx-auto my-8 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Shops Management</h1>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-lg" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // If there's an error, show error message
-  if (error) {
-    return (
-      <div className="container mx-auto my-8 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Shops Management</h1>
-          <Button onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
-        </div>
-        <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
-          <CardHeader>
-            <CardTitle className="text-red-500">Error Loading Shops</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : "An unknown error occurred"}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  // Main render function
   return (
-    <div className="container mx-auto my-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Shops Management</h1>
-        <Button onClick={() => {
-          createForm.reset();
-          setIsCreateDialogOpen(true);
-        }}>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          New Shop
-        </Button>
-      </div>
+    <AdminLayout title="Shops Management">
+      {/* If data is loading, show skeletons */}
+      {isLoading ? (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
+      ) : error ? (
+        // If there's an error, show error message
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <Button onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+          <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+            <CardHeader>
+              <CardTitle className="text-red-500">Error Loading Shops</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : "An unknown error occurred"}</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        // Main content
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <Button onClick={() => {
+              createForm.reset();
+              setIsCreateDialogOpen(true);
+            }}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              New Shop
+            </Button>
+          </div>
       
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
@@ -510,6 +504,14 @@ export default function ShopsPage() {
 }
 
 // Shop Card Component
+// Render complete component with AdminLayout
+return (
+  <AdminLayout title="Shops Management">
+    {renderContent()}
+  </AdminLayout>
+);
+}
+
 function ShopCard({ 
   shop, 
   onEdit, 
