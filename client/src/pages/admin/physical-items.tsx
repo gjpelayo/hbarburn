@@ -213,9 +213,9 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-[1000px] mx-auto place-items-center">
+        <div className="flex flex-wrap justify-center gap-6 max-w-[1200px] mx-auto">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow max-w-xs">
+            <Card key={item.id} className="hover:shadow-md transition-shadow w-[320px]">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
@@ -226,8 +226,8 @@ export default function PhysicalItemsPage() {
                 </div>
               )}
               <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-center">
-                  <span className="text-base">{item.name}</span>
+                <CardTitle className="flex flex-col gap-1">
+                  <span className="text-base truncate">{item.name}</span>
                   {(() => {
                     const config = getTokenConfigForItem(item.id);
                     const token = config ? getTokenDetails(config.tokenId) : null;
@@ -245,19 +245,19 @@ export default function PhysicalItemsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-4 h-[60px] overflow-hidden">
                   {item.description && item.description.length > 120 
                     ? `${item.description.substring(0, 120)}...` 
                     : item.description}
                 </p>
                 <div className="flex justify-between items-center text-sm">
-                  <div className="text-muted-foreground">
+                  <div className="text-muted-foreground max-w-[150px] overflow-hidden text-ellipsis">
                     {(() => {
                       const config = getTokenConfigForItem(item.id);
                       const token = config ? getTokenDetails(config.tokenId) : null;
                       
                       return token && config ? (
-                        <span>Token: {token.tokenId}</span>
+                        <span className="truncate inline-block">Token: {token.tokenId}</span>
                       ) : (
                         <span className="italic">No token assigned</span>
                       );
