@@ -43,9 +43,19 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 
 // Middleware to check if user is an admin
 function isAdmin(req: Request, res: Response, next: NextFunction) {
+  // Check passport authentication first
+  if (req.isAuthenticated() && req.user && req.user.isAdmin) {
+    return next();
+  }
+  
+  // Fall back to session if passport isn't used
   if (req.session.isLoggedIn && req.session.user && req.session.user.isAdmin) {
     return next();
   }
+  
+  console.log('Admin access denied - Session user:', req.session.user);
+  console.log('Admin access denied - Passport user:', req.user);
+  
   return res.status(403).json({ message: "Forbidden - Admin access required" });
 }
 
@@ -99,9 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = user;
       req.session.isLoggedIn = true;
       
-      // Don't return password in response
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      // Also login with passport
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Error logging in with passport:", err);
+          return res.status(500).json({ message: "Wallet login failed" });
+        }
+        
+        // Don't return password in response
+        const { password: _, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      });
     } catch (error) {
       console.error("Wallet login error:", error);
       
@@ -119,12 +137,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Logout route
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout failed" });
-      }
-      res.status(200).json({ message: "Logged out successfully" });
-    });
+    // First logout with passport if authenticated
+    if (req.isAuthenticated()) {
+      req.logout((err) => {
+        if (err) {
+          console.error("Error logging out from passport:", err);
+        }
+        
+        // Then destroy the session
+        req.session.destroy((err) => {
+          if (err) {
+            return res.status(500).json({ message: "Logout failed" });
+          }
+          res.status(200).json({ message: "Logged out successfully" });
+        });
+      });
+    } else {
+      // Just destroy the session if not authenticated with passport
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.status(200).json({ message: "Logged out successfully" });
+      });
+    }
   });
   
   // Get current user session

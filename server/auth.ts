@@ -21,7 +21,9 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-async function comparePasswords(supplied: string, stored: string) {
+async function comparePasswords(supplied: string, stored: string | null) {
+  if (!stored) return false;
+  
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
@@ -48,7 +50,7 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
+        if (!user || !user.password || !(await comparePasswords(password, user.password))) {
           return done(null, false);
         } else {
           return done(null, user);
@@ -91,9 +93,26 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/admin/user", (req, res) => {
-    if (!req.isAuthenticated() || !req.user.isAdmin) {
+    // Log the session and authentication status for debugging
+    console.log('Session:', req.session);
+    console.log('Is authenticated:', req.isAuthenticated());
+    console.log('User in session:', req.session.user);
+    console.log('User in passport:', req.user);
+    
+    // Check both session and passport user
+    if (!req.isAuthenticated()) {
+      if (req.session.user && req.session.user.isAdmin) {
+        // If we have a user in session but not authenticated via passport
+        // let's still consider them authenticated
+        return res.json(req.session.user);
+      }
       return res.sendStatus(401);
     }
+    
+    if (!req.user.isAdmin) {
+      return res.sendStatus(403); // Forbidden - not an admin
+    }
+    
     res.json(req.user);
   });
 }
