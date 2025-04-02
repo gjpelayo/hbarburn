@@ -213,7 +213,7 @@ export default function PhysicalItemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1200px] mx-auto px-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto px-4">
           {physicalItems.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow h-full flex flex-col">
               {item.imageUrl && (
@@ -248,8 +248,8 @@ export default function PhysicalItemsPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   {item.description}
                 </p>
-                <div className="mt-auto flex justify-between items-center text-sm">
-                  <div className="text-muted-foreground w-[150px] overflow-hidden">
+                <div className="mt-auto flex flex-col gap-3">
+                  <div className="text-muted-foreground text-sm">
                     {(() => {
                       const config = getTokenConfigForItem(item.id);
                       const token = config ? getTokenDetails(config.tokenId) : null;
@@ -261,10 +261,11 @@ export default function PhysicalItemsPage() {
                       );
                     })()}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex justify-between gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      className="flex-1"
                       onClick={() => handleEditClick(item)}
                     >
                       <PencilIcon className="h-3 w-3 mr-1" />
@@ -273,7 +274,7 @@ export default function PhysicalItemsPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="text-destructive hover:text-destructive"
+                      className="flex-1 text-destructive hover:text-destructive"
                       onClick={() => handleDeleteClick(item)}
                     >
                       <Trash2Icon className="h-3 w-3 mr-1" />
