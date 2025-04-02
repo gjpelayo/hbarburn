@@ -22,10 +22,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // Define the shop type
 interface Shop {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  imageUrl: string;
+  imageUrl: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -82,7 +82,7 @@ export default function ShopsPage() {
 
   // Mutation to edit a shop
   const editShopMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string, data: FormValues }) => {
+    mutationFn: async ({ id, data }: { id: number, data: FormValues }) => {
       const res = await apiRequest("PATCH", `/api/admin/shops/${id}`, data);
       return await res.json();
     },
@@ -105,7 +105,7 @@ export default function ShopsPage() {
 
   // Mutation to delete a shop
   const deleteShopMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/admin/shops/${id}`);
     },
     onSuccess: () => {
