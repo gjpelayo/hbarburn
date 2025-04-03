@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAdmin } from "@/hooks/use-admin";
+import { useWallet } from "@/context/WalletContext";
 import { useQuery } from "@tanstack/react-query";
 import { Footer } from "@/components/Footer";
 import { WalletConnectHeader } from "@/components/WalletConnectHeader";
@@ -9,6 +10,13 @@ import { EducationalContent } from "@/components/EducationalContent";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ShoppingBag, Link as LinkIcon, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Shop {
   id: string;
@@ -23,7 +31,9 @@ export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user } = useAdmin();
+  const { isConnected, connectWallet } = useWallet();
   const [isCopied, setIsCopied] = useState(false);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
   
   // Fetch active shops
   const { data: shops = [], isLoading } = useQuery<Shop[]>({
@@ -49,6 +59,36 @@ export default function Home() {
     
     setTimeout(() => setIsCopied(false), 2000);
   };
+  
+  // Handler functions for wallet connection
+  const handleConnectHashpack = async () => {
+    try {
+      await connectWallet("hashpack");
+      setIsConnectDialogOpen(false);
+      navigate("/admin");
+    } catch (error) {
+      console.error("Error connecting HashPack wallet:", error);
+    }
+  };
+  
+  const handleConnectBlade = async () => {
+    try {
+      await connectWallet("blade");
+      setIsConnectDialogOpen(false);
+      navigate("/admin");
+    } catch (error) {
+      console.error("Error connecting Blade wallet:", error);
+    }
+  };
+  
+  // Handle setup shop click - navigate to admin if connected, or show connect dialog
+  const handleSetupShopClick = () => {
+    if (user || isConnected) {
+      navigate("/admin");
+    } else {
+      setIsConnectDialogOpen(true);
+    }
+  };
 
   return (
     <>
@@ -65,13 +105,52 @@ export default function Home() {
           
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
             <Button 
-              onClick={() => navigate("/admin")}
+              onClick={handleSetupShopClick}
               size="lg"
               className="px-8 gap-2"
             >
               <ShoppingBag className="w-4 h-4" />
               {user ? "Manage My Shop" : "Setup Shop"}
             </Button>
+            
+            {/* Wallet Connection Dialog */}
+            <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Connect your wallet</DialogTitle>
+                  <DialogDescription>
+                    Connect your Hedera wallet to set up and manage your shop.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <Button 
+                    onClick={handleConnectHashpack}
+                    className="w-full flex justify-center items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M7 7h.01" />
+                      <path d="M17 7h.01" />
+                      <path d="M7 17h.01" />
+                      <path d="M17 17h.01" />
+                    </svg>
+                    Connect with HashPack
+                  </Button>
+                  <Button 
+                    onClick={handleConnectBlade}
+                    variant="outline"
+                    className="w-full flex justify-center items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8.5" />
+                      <path d="M20 16V8a2 2 0 0 0-2-2h-2" />
+                      <path d="M12 12h6" />
+                    </svg>
+                    Connect with Blade
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
         
