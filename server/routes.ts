@@ -546,11 +546,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertTokenConfigurationSchema.parse(req.body);
       
-      // Verify token exists on Hedera network
-      if (!await verifyTokenOnHedera(validatedData.tokenId)) {
-        return res.status(400).json({ 
-          message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
-        });
+      // Only verify token in production environment
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          // Verify token exists on Hedera network
+          const tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+          if (!tokenInfo) {
+            return res.status(400).json({ 
+              message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+            });
+          }
+        } catch (hederaError) {
+          console.error("Error verifying token on Hedera:", hederaError);
+          // In production, surface the error
+          if (process.env.NODE_ENV === 'production') {
+            return res.status(400).json({ message: "Error verifying token on Hedera network" });
+          }
+          // In development, log the error but proceed with creating the configuration
+          console.warn("Skipping Hedera verification in development environment");
+        }
+      } else {
+        console.log("Development environment detected, skipping Hedera token verification");
       }
       
       const config = await storage.createTokenConfiguration(validatedData);
