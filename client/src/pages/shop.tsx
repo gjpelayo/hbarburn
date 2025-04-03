@@ -36,16 +36,17 @@ export default function ShopPage() {
   } = useQuery({
     queryKey: [`/api/shops/${shopId}`],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/shops/${shopId}`);
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to fetch shop: ${errorText || res.statusText}`);
+      try {
+        const res = await apiRequest("GET", `/api/shops/${shopId}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch shop: ${res.statusText}`);
+        }
+        const data = await res.json();
+        return data as Shop;
+      } catch (error) {
+        console.error("Error fetching shop:", error);
+        throw new Error(`Failed to fetch shop: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      const data = await res.json();
-      if (!data) {
-        throw new Error("No shop data received");
-      }
-      return data as Shop;
     },
     enabled: !!shopId,
   });
@@ -58,19 +59,23 @@ export default function ShopPage() {
   } = useQuery({
     queryKey: [`/api/shops/${shopId}/items`],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/shops/${shopId}/items`);
-      if (!res.ok) {
-        // If specific shop items endpoint fails, fall back to all items
-        console.warn(`Failed to get shop-specific items for shop ${shopId}, falling back to all items`);
-        const fallbackRes = await apiRequest("GET", "/api/physical-items");
-        if (!fallbackRes.ok) {
-          const errorText = await fallbackRes.text();
-          throw new Error(`Failed to fetch items: ${errorText || fallbackRes.statusText}`);
+      try {
+        const res = await apiRequest("GET", `/api/shops/${shopId}/items`);
+        if (!res.ok) {
+          // If specific shop items endpoint fails, fall back to all items
+          console.warn(`Failed to get shop-specific items for shop ${shopId}, falling back to all items`);
+          const fallbackRes = await apiRequest("GET", "/api/physical-items");
+          if (!fallbackRes.ok) {
+            throw new Error(`Failed to fetch items: ${fallbackRes.statusText}`);
+          }
+          return await fallbackRes.json() as PhysicalItem[];
         }
-        return await fallbackRes.json() as PhysicalItem[];
+        const data = await res.json();
+        return data as PhysicalItem[];
+      } catch (error) {
+        console.error("Error fetching items:", error);
+        throw new Error(`Failed to fetch items: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      const data = await res.json();
-      return data as PhysicalItem[];
     },
     enabled: !!shopId && !!shop,
   });

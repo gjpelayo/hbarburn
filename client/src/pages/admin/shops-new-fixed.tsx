@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PlusCircle, Pencil, Trash, RefreshCw } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { FileUpload } from "@/components/ui/file-upload";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,10 @@ interface Shop {
 const shopSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  imageUrl: z.string().url("Must be a valid URL").or(z.string().length(0)).optional(),
+  imageUrl: z.string()
+    .refine(val => !val || val.startsWith('data:image/') || val.startsWith('http'), 
+      "Please provide a valid image URL or upload an image")
+    .optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -321,12 +325,15 @@ export default function ShopsPage() {
                     name="imageUrl"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Image URL</FormLabel>
+                        <FormLabel>Cover Image</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter image URL (optional)" {...field} />
+                          <FileUpload
+                            onChange={field.onChange}
+                            value={field.value || ""}
+                          />
                         </FormControl>
                         <FormDescription>
-                          Provide a URL to an image that represents this shop.
+                          Upload an image or provide a URL for your shop banner.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -422,12 +429,15 @@ export default function ShopsPage() {
                     name="imageUrl"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Image URL</FormLabel>
+                        <FormLabel>Cover Image</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter image URL (optional)" {...field} />
+                          <FileUpload
+                            onChange={field.onChange}
+                            value={field.value || ""}
+                          />
                         </FormControl>
                         <FormDescription>
-                          Provide a URL to an image that represents this shop.
+                          Upload an image or provide a URL for your shop banner.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
