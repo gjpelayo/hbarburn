@@ -6,7 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
-import { PhysicalItem, InsertPhysicalItem } from "@shared/schema";
+import { 
+  PhysicalItem, 
+  InsertPhysicalItem,
+  Token,
+  InsertTokenConfiguration
+} from "@shared/schema";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
 // UI Components
@@ -16,13 +21,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
-// Simple schema for physical item form
+// Enhanced schema for physical item form with token configuration
 const physicalItemSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   description: z.string().optional(),
   imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
+  tokenId: z.string().min(1, "Please select a token"),
+  burnAmount: z.number().min(1, "Burn amount must be at least 1").default(1),
 });
 
 export default function PhysicalItemsNewPage() {
@@ -43,18 +51,27 @@ export default function PhysicalItemsNewPage() {
   const { data: physicalItems = [], isLoading } = useQuery<PhysicalItem[]>({
     queryKey: ["/api/admin/physical-items"],
   });
+  
+  // Fetch tokens for selection
+  const { data: tokens = [], isLoading: isLoadingTokens } = useQuery<Token[]>({
+    queryKey: ["/api/tokens"],
+  });
 
   // Form for creating/editing physical items
   const form = useForm<{
     name: string;
     description: string;
     imageUrl: string;
+    tokenId: string;
+    burnAmount: number;
   }>({
     resolver: zodResolver(physicalItemSchema),
     defaultValues: {
       name: "",
       description: "",
       imageUrl: "",
+      tokenId: "",
+      burnAmount: 1,
     },
   });
 
@@ -153,12 +170,28 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const itemData = form.getValues();
+    const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
     
+    // First create the physical item
     try {
-      createPhysicalItemMutation.mutate(itemData as InsertPhysicalItem, {
+      createPhysicalItemMutation.mutate(
+        { name, description, imageUrl } as InsertPhysicalItem, 
+        {
         onSuccess: (newItem) => {
           console.log("Item created successfully:", newItem);
+          
+          // Now create the token configuration that links the token to the physical item
+          const tokenConfigData: InsertTokenConfiguration = {
+            tokenId,
+            physicalItemId: newItem.id,
+            burnAmount,
+            isActive: true
+          };
+          
+          // Here we would normally call a mutation to create the token configuration
+          // For now we'll just log it
+          console.log("Creating token configuration:", tokenConfigData);
+          
           toast({
             title: "Physical item created",
             description: "The physical item has been created successfully.",
@@ -319,6 +352,8 @@ export default function PhysicalItemsNewPage() {
             name: "",
             description: "",
             imageUrl: "",
+            tokenId: "",
+            burnAmount: 1
           });
           setIsCreateOpen(true);
         }} size="sm">
@@ -448,6 +483,65 @@ export default function PhysicalItemsNewPage() {
                         placeholder="https://example.com/image.jpg" 
                         {...field} 
                         value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="tokenId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Token</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a token" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {isLoadingTokens ? (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : tokens.length === 0 ? (
+                          <div className="text-center py-2 text-sm text-muted-foreground">
+                            No tokens available
+                          </div>
+                        ) : (
+                          tokens.map((token) => (
+                            <SelectItem key={token.tokenId} value={token.tokenId}>
+                              {token.name} ({token.symbol})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="burnAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Burn Amount</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min={1}
+                        placeholder="1"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        value={field.value}
                       />
                     </FormControl>
                     <FormMessage />
