@@ -245,7 +245,7 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
+    const { name, description, imageUrl, stock, tokenId, burnAmount } = form.getValues();
     
     // First check if token is valid before proceeding
     if (tokenVerification && !tokenVerification.isValid) {
@@ -298,7 +298,7 @@ export default function PhysicalItemsNewPage() {
     // Create the physical item only if token is valid or verification succeeded
     try {
       createPhysicalItemMutation.mutate(
-        { name, description, imageUrl } as InsertPhysicalItem, 
+        { name, description, imageUrl, stock } as InsertPhysicalItem, 
         {
         onSuccess: (newItem) => {
           console.log("Item created successfully:", newItem);
@@ -372,8 +372,8 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
-    const itemData = { name, description, imageUrl };
+    const { name, description, imageUrl, stock, tokenId, burnAmount } = form.getValues();
+    const itemData = { name, description, imageUrl, stock };
     
     // First check if token is valid before proceeding
     if (tokenVerification && !tokenVerification.isValid) {
