@@ -327,25 +327,22 @@ export default function PhysicalItemsNewPage() {
       setIsVerifyingToken(false);
     }
     
-    // Create the physical item with combined data - include token information directly
-    const createData: InsertPhysicalItem & { tokenDetails?: { tokenId: string, burnAmount: number } } = {
+    // Create the physical item and include tokenId and burnAmount directly
+    const createData = {
       name, 
       description, 
       imageUrl, 
       stock, 
-      hasVariations
-    };
-    
-    // If token ID is provided, add it to the creation data
-    if (tokenId && tokenId.trim() !== "") {
-      createData.tokenDetails = {
+      hasVariations,
+      // Only include token fields if tokenId is provided
+      ...(tokenId && tokenId.trim() !== "" ? {
         tokenId: tokenId.trim(),
         burnAmount: burnAmount || 1
-      };
-    }
+      } : {})
+    };
     
     try {
-      // Simple single-step creation
+      // Single-step creation with all data
       createPhysicalItemMutation.mutate(createData as any, {
         onSuccess: (newItem) => {
           console.log("Item created successfully:", newItem);
