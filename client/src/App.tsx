@@ -21,7 +21,7 @@ import TokensPage from "@/pages/admin/tokens";
 // Token configurations are now handled in the physical items page
 import RedemptionsPage from "@/pages/admin/redemptions";
 import ShopsPageNew from "@/pages/admin/shops-new-fixed";
-import ShopItemsPage from "@/pages/admin/shop-items";
+import ShopItemsPage from "@/pages/admin/shop-items-fixed";
 import PaymentMethodsPage from "@/pages/admin/payment-methods";
 
 function Router() {

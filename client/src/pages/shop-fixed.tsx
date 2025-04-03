@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
+import { useParams, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useWallet } from "@/context/WalletContext";
 
 // Components
 import { PhysicalItemsGrid, PhysicalItem } from "@/components/PhysicalItemsGrid";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, LayoutGrid } from "lucide-react";
+import { AlertCircle, LayoutGrid, Wallet } from "lucide-react";
 
 // Define Shop interface
 interface Shop {
@@ -26,6 +26,7 @@ interface Shop {
 export default function ShopPage() {
   const { shopId } = useParams();
   const { toast } = useToast();
+  const { isConnected, accountId, connectWallet, disconnectWallet } = useWallet();
   const [selectedItem, setSelectedItem] = useState<PhysicalItem | null>(null);
 
   // Fetch shop data
@@ -87,8 +88,16 @@ export default function ShopPage() {
 
   // Handle item selection
   const handleItemSelect = (item: PhysicalItem) => {
+    if (!isConnected) {
+      toast({
+        title: "Wallet not connected",
+        description: "Please connect your wallet to redeem items",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedItem(item);
-    // Here you would navigate to the redemption flow or show more details
     toast({
       title: `Selected: ${item.name}`,
       description: "Starting redemption process...",
@@ -142,53 +151,90 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Shop Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{shop.name}</h1>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{shop.description}</p>
-          
-          {shop.imageUrl && (
-            <div className="mb-8 rounded-lg overflow-hidden h-56 md:h-72 w-full">
-              <img
-                src={shop.imageUrl}
-                alt={shop.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback image on error
-                  (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' viewBox='0 0 800 400' preserveAspectRatio='none'%3E%3Crect fill='%23f5f5f5' width='800' height='400' /%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='24' text-anchor='middle' x='400' y='200'%3EImage not available%3C/text%3E%3C/svg%3E";
-                }}
-              />
-            </div>
-          )}
-        </div>
+    <>
+      {/* Shop Header with Wallet Connect */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 flex">
+            <Link to="/" className="mr-6 flex items-center space-x-2">
+              <span className="font-bold">Hedera Token Shop</span>
+            </Link>
+          </div>
 
-        {/* Items Grid */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <LayoutGrid className="h-5 w-5 mr-2" /> 
-              Available Items
-            </CardTitle>
-            <CardDescription>
-              Select an item to start the redemption process.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {physicalItems && physicalItems.length > 0 ? (
-              <PhysicalItemsGrid
-                physicalItems={physicalItems}
-                onItemSelect={handleItemSelect}
-              />
+          <div className="flex flex-1 items-center justify-end">
+            {isConnected ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mr-2"
+                onClick={disconnectWallet}
+              >
+                <Wallet className="mr-2 h-4 w-4" />
+                {accountId && accountId.slice(0, 4) + '...' + accountId.slice(-4)}
+              </Button>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No items available in this shop.</p>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => connectWallet("hashpack")}
+              >
+                <Wallet className="mr-2 h-4 w-4" />
+                Connect Wallet
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-5xl mx-auto">
+          {/* Shop Title & Description */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight mb-2">{shop.name}</h1>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">{shop.description}</p>
+            
+            {shop.imageUrl && (
+              <div className="mb-8 rounded-lg overflow-hidden h-56 md:h-72 w-full">
+                <img
+                  src={shop.imageUrl}
+                  alt={shop.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback image on error
+                    (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' viewBox='0 0 800 400' preserveAspectRatio='none'%3E%3Crect fill='%23f5f5f5' width='800' height='400' /%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='24' text-anchor='middle' x='400' y='200'%3EImage not available%3C/text%3E%3C/svg%3E";
+                  }}
+                />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Items Grid */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <LayoutGrid className="h-5 w-5 mr-2" /> 
+                Available Items
+              </CardTitle>
+              <CardDescription>
+                {!isConnected && "Please connect your wallet to select and redeem items."}
+                {isConnected && "Select an item to start the redemption process."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {physicalItems && physicalItems.length > 0 ? (
+                <PhysicalItemsGrid
+                  physicalItems={physicalItems}
+                  onItemSelect={handleItemSelect}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No items available in this shop.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
