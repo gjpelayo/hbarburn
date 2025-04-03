@@ -109,9 +109,7 @@ export function PhysicalItemsGrid({
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <p className="text-sm text-neutral-500">{item.description}</p>
-                {item.stock > 0 && (
-                  <p className="text-xs text-green-600 mt-2">In stock: {item.stock} available</p>
-                )}
+                {/* Only show "Out of stock" when needed but don't show the specific count */}
                 {item.stock === 0 && (
                   <p className="text-xs text-red-600 mt-2">Out of stock</p>
                 )}
