@@ -565,10 +565,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If tokenId is being updated, verify it exists on Hedera
       if (validatedData.tokenId) {
-        // Verify token exists on Hedera network
-        if (!await verifyTokenOnHedera(validatedData.tokenId)) {
+        try {
+          // Verify token exists on Hedera network
+          const tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+          if (!tokenInfo) {
+            return res.status(400).json({ 
+              message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+            });
+          }
+        } catch (tokenError) {
+          console.error("Error verifying token:", tokenError);
           return res.status(400).json({ 
-            message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+            message: "Error verifying token on Hedera network"
           });
         }
       }
@@ -579,7 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Token configuration not found" });
       }
       
-      res.json(updated);
+      return res.status(200).json(updated);
     } catch (error) {
       console.error("Error updating token configuration:", error);
       
@@ -591,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      res.status(500).json({ message: "Failed to update token configuration" });
+      return res.status(500).json({ message: "Failed to update token configuration" });
     }
   });
   
