@@ -558,29 +558,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertTokenConfigurationSchema.parse(req.body);
       
-      // Only verify token in production environment
-      if (process.env.NODE_ENV === 'production') {
+      // Check if token exists in our database first
+      let token = await storage.getTokenById(validatedData.tokenId);
+      let tokenInfo = null;
+      
+      // If we're in development mode or if we have valid Hedera credentials, verify the token
+      if (!token || process.env.NODE_ENV === 'production') {
         try {
           // Verify token exists on Hedera network
-          const tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
-          if (!tokenInfo) {
+          tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+          
+          if (!tokenInfo && process.env.NODE_ENV === 'production') {
             return res.status(400).json({ 
               message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
             });
           }
         } catch (hederaError) {
           console.error("Error verifying token on Hedera:", hederaError);
+          
           // In production, surface the error
           if (process.env.NODE_ENV === 'production') {
             return res.status(400).json({ message: "Error verifying token on Hedera network" });
           }
-          // In development, log the error but proceed with creating the configuration
-          console.warn("Skipping Hedera verification in development environment");
+          
+          // In development, log the error but proceed
+          console.log("Token not found on network but accepting in development mode:", validatedData.tokenId);
+          
+          // Create a placeholder token info for development
+          tokenInfo = {
+            tokenId: validatedData.tokenId,
+            name: `Token ${validatedData.tokenId}`,
+            symbol: "TKN",
+            decimals: 0,
+            totalSupply: 1000000,
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          };
         }
-      } else {
-        console.log("Development environment detected, skipping Hedera token verification");
       }
       
+      // If token doesn't exist in our database but we have token info, create it
+      if (!token && tokenInfo) {
+        try {
+          token = await storage.createToken({
+            tokenId: tokenInfo.tokenId,
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            decimals: tokenInfo.decimals,
+            redemptionItem: "Created for token configuration"
+          });
+          console.log("Created new token in database:", token);
+        } catch (tokenCreateError) {
+          console.error("Error creating token record:", tokenCreateError);
+          // Continue with configuration creation even if token creation fails
+        }
+      }
+      
+      // Now create the token configuration
       const config = await storage.createTokenConfiguration(validatedData);
       res.status(201).json(config);
     } catch (error) {
@@ -608,9 +642,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = updateTokenConfigurationSchema.parse(req.body);
       
-      // Skip token verification since we only need to update burn amount
-      // If we were updating tokenId, we could verify it exists on Hedera here
+      // If tokenId is being updated, verify the token exists or create it
+      if (validatedData.tokenId) {
+        // Check if token exists in our database first
+        let token = await storage.getTokenById(validatedData.tokenId);
+        let tokenInfo = null;
+        
+        // If token doesn't exist in our database and we have the token ID
+        if (!token) {
+          try {
+            // Try to verify token on Hedera network
+            tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+            
+            // If we're in production and token doesn't exist, reject update
+            if (!tokenInfo && process.env.NODE_ENV === 'production') {
+              return res.status(400).json({ 
+                message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+              });
+            }
+            
+            // If we don't have token info but are in development, create placeholder info
+            if (!tokenInfo) {
+              console.log("Token not found on network but accepting in development mode:", validatedData.tokenId);
+              tokenInfo = {
+                tokenId: validatedData.tokenId,
+                name: `Token ${validatedData.tokenId}`,
+                symbol: "TKN",
+                decimals: 0,
+                totalSupply: 1000000,
+                isDeleted: false,
+                tokenType: "FUNGIBLE"
+              };
+            }
+            
+            // Create the token in our database
+            try {
+              token = await storage.createToken({
+                tokenId: tokenInfo.tokenId,
+                name: tokenInfo.name,
+                symbol: tokenInfo.symbol,
+                decimals: tokenInfo.decimals,
+                redemptionItem: "Created for token configuration"
+              });
+              console.log("Created new token in database:", token);
+            } catch (tokenCreateError) {
+              console.error("Error creating token record:", tokenCreateError);
+              // Continue with configuration update even if token creation fails
+            }
+          } catch (hederaError) {
+            console.error("Error verifying token on Hedera:", hederaError);
+            
+            // In production, surface the error
+            if (process.env.NODE_ENV === 'production') {
+              return res.status(400).json({ message: "Error verifying token on Hedera network" });
+            }
+            
+            // In development, log the error but proceed
+            console.log("Token not found but accepting in development mode:", validatedData.tokenId);
+          }
+        }
+      }
       
+      // Now update the token configuration
       const updated = await storage.updateTokenConfiguration(id, validatedData);
       
       if (!updated) {
