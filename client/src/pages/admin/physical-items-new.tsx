@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
-import { verifyToken, isValidTokenId, TokenVerificationResponse } from "@/lib/hedera";
+import { TokenVerificationResponse } from "@/lib/hedera";
 import { 
   PhysicalItem, 
   InsertPhysicalItem,
@@ -108,69 +108,41 @@ export default function PhysicalItemsNewPage() {
     defaultValue: ""
   });
   
-  // Verify token when tokenId changes
+  // Check selected token against our tokens list
   useEffect(() => {
-    async function verifyTokenId() {
-      // Clear verification state if token ID is empty or very short
-      if (!watchedTokenId || watchedTokenId.trim() === '') {
-        setTokenVerification(null);
-        setIsVerifyingToken(false);
-        return;
-      }
-      
-      // If the user is selecting from available tokens, we can trust it's valid
-      const matchingToken = tokens.find(t => t.tokenId === watchedTokenId);
-      if (matchingToken) {
-        setTokenVerification({
-          isValid: true,
-          tokenInfo: {
-            tokenId: matchingToken.tokenId,
-            name: matchingToken.name,
-            symbol: matchingToken.symbol,
-            decimals: matchingToken.decimals || 0,
-            totalSupply: 1000000, // Default for development
-            isDeleted: false,
-            tokenType: "FUNGIBLE"
-          }
-        });
-        setIsVerifyingToken(false);
-        return;
-      }
-      
-      // For manual entry, validate format first
-      if (!isValidTokenId(watchedTokenId)) {
-        setTokenVerification({
-          isValid: false,
-          message: "Invalid token ID format (should be 0.0.xxxx)"
-        });
-        setIsVerifyingToken(false);
-        return;
-      }
-      
-      // Perform network verification
-      setIsVerifyingToken(true);
-      try {
-        console.log("Verifying token ID:", watchedTokenId);
-        const result = await verifyToken(watchedTokenId);
-        console.log("Verification result:", result);
-        setTokenVerification(result);
-      } catch (error) {
-        console.error("Error verifying token:", error);
-        setTokenVerification({
-          isValid: false,
-          message: error instanceof Error ? error.message : "Error verifying token"
-        });
-      } finally {
-        setIsVerifyingToken(false);
-      }
+    // Clear verification state if token ID is empty
+    if (!watchedTokenId || watchedTokenId.trim() === '') {
+      setTokenVerification(null);
+      setIsVerifyingToken(false);
+      return;
     }
     
-    // Debounce token verification
-    const timeoutId = setTimeout(() => {
-      verifyTokenId();
-    }, 500);
+    // Find the token in our list of available tokens
+    const matchingToken = tokens.find(t => t.tokenId === watchedTokenId);
     
-    return () => clearTimeout(timeoutId);
+    if (matchingToken) {
+      // Token exists in our list - it's valid
+      setTokenVerification({
+        isValid: true,
+        tokenInfo: {
+          tokenId: matchingToken.tokenId,
+          name: matchingToken.name,
+          symbol: matchingToken.symbol,
+          decimals: matchingToken.decimals || 0,
+          totalSupply: 0,
+          isDeleted: false,
+          tokenType: "FUNGIBLE"
+        }
+      });
+    } else {
+      // Token not in our list - it's not valid
+      setTokenVerification({
+        isValid: false,
+        message: "Please select a token from the dropdown list."
+      });
+    }
+    
+    setIsVerifyingToken(false);
   }, [watchedTokenId, tokens]);
 
   // Handler for opening edit dialog
@@ -279,52 +251,17 @@ export default function PhysicalItemsNewPage() {
     
     const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
     
-    // First check if token is valid before proceeding
-    if (tokenVerification && !tokenVerification.isValid) {
-      toast({
-        title: "Invalid token",
-        description: tokenVerification.message || "The token ID is not valid on the Hedera network.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // If we're currently verifying a token, wait until it completes
-    if (isVerifyingToken) {
-      toast({
-        title: "Please wait",
-        description: "Token verification is in progress. Please wait for it to complete.",
-        variant: "default",
-      });
-      return;
-    }
-    
-    // If no token verification has been done yet, verify it now
-    if (!tokenVerification && tokenId && tokenId.length > 0) {
-      setIsVerifyingToken(true);
-      try {
-        const result = await verifyToken(tokenId);
-        setTokenVerification(result);
-        
-        if (!result.isValid) {
-          setIsVerifyingToken(false);
-          toast({
-            title: "Invalid token",
-            description: result.message || "The token ID is not valid on the Hedera network.",
-            variant: "destructive",
-          });
-          return;
-        }
-      } catch (error) {
-        setIsVerifyingToken(false);
+    // If tokenId is provided, verify it exists in the tokens list
+    if (tokenId && tokenId.trim() !== "") {
+      const selectedToken = tokens.find(t => t.tokenId === tokenId);
+      if (!selectedToken) {
         toast({
-          title: "Token verification failed",
-          description: error instanceof Error ? error.message : "Unable to verify token on the Hedera network.",
+          title: "Invalid token",
+          description: "Please select a valid token from the dropdown list.",
           variant: "destructive",
         });
         return;
       }
-      setIsVerifyingToken(false);
     }
     
     // Create the physical item and include tokenId and burnAmount directly
@@ -398,52 +335,17 @@ export default function PhysicalItemsNewPage() {
     const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
     const itemData = { name, description, imageUrl, stock, hasVariations };
     
-    // First check if token is valid before proceeding
-    if (tokenVerification && !tokenVerification.isValid) {
-      toast({
-        title: "Invalid token",
-        description: tokenVerification.message || "The token ID is not valid on the Hedera network.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // If we're currently verifying a token, wait until it completes
-    if (isVerifyingToken) {
-      toast({
-        title: "Please wait",
-        description: "Token verification is in progress. Please wait for it to complete.",
-        variant: "default",
-      });
-      return;
-    }
-    
-    // If no token verification has been done yet, verify it now
-    if (!tokenVerification && tokenId && tokenId.length > 0) {
-      setIsVerifyingToken(true);
-      try {
-        const result = await verifyToken(tokenId);
-        setTokenVerification(result);
-        
-        if (!result.isValid) {
-          setIsVerifyingToken(false);
-          toast({
-            title: "Invalid token",
-            description: result.message || "The token ID is not valid on the Hedera network.",
-            variant: "destructive",
-          });
-          return;
-        }
-      } catch (error) {
-        setIsVerifyingToken(false);
+    // If tokenId is provided, verify it exists in the tokens list
+    if (tokenId && tokenId.trim() !== "") {
+      const selectedToken = tokens.find(t => t.tokenId === tokenId);
+      if (!selectedToken) {
         toast({
-          title: "Token verification failed",
-          description: error instanceof Error ? error.message : "Unable to verify token on the Hedera network.",
+          title: "Invalid token",
+          description: "Please select a valid token from the dropdown list.",
           variant: "destructive",
         });
         return;
       }
-      setIsVerifyingToken(false);
     }
     
     try {
@@ -808,81 +710,46 @@ export default function PhysicalItemsNewPage() {
                 name="tokenId"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Token</FormLabel>
+                    <FormLabel>Token (optional)</FormLabel>
                     <div className="flex flex-col space-y-2">
-                      <Tabs defaultValue="select" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="select">Select Token</TabsTrigger>
-                          <TabsTrigger value="manual">Enter Token ID</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="select" className="pt-2">
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a token" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {isLoadingTokens ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                </div>
-                              ) : tokens.length === 0 ? (
-                                <div className="text-center py-2 text-sm text-muted-foreground">
-                                  No tokens available
-                                </div>
-                              ) : (
-                                tokens.map((token) => (
-                                  <SelectItem key={token.tokenId} value={token.tokenId}>
-                                    {token.name} ({token.symbol})
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </TabsContent>
-                        <TabsContent value="manual" className="pt-2">
-                          <div className="flex space-x-2">
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter token ID (0.0.xxxx)" 
-                                {...field}
-                              />
-                            </FormControl>
-                            {isVerifyingToken && (
-                              <Button variant="outline" size="icon" disabled>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              </Button>
-                            )}
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                      
-                      {/* Token verification status */}
-                      {tokenVerification && (
-                        <div className={cn(
-                          "text-sm p-2 rounded-md mt-1",
-                          tokenVerification.isValid 
-                            ? "bg-green-50 border border-green-100 text-green-700" 
-                            : "bg-red-50 border border-red-100 text-red-700"
-                        )}>
-                          {tokenVerification.isValid ? (
-                            <div className="flex items-center">
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              <div>
-                                <span className="font-medium">Valid token: </span> 
-                                {tokenVerification.tokenInfo?.symbol} ({tokenVerification.tokenInfo?.name})
-                              </div>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a token" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">No token required</SelectItem>
+                          {isLoadingTokens ? (
+                            <div className="flex items-center justify-center py-2">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : tokens.length === 0 ? (
+                            <div className="text-center py-2 text-sm text-muted-foreground">
+                              No tokens available
                             </div>
                           ) : (
-                            <div className="flex items-center">
-                              <XCircle className="h-4 w-4 mr-2" />
-                              <div>{tokenVerification.message}</div>
-                            </div>
+                            tokens.map((token) => (
+                              <SelectItem key={token.tokenId} value={token.tokenId}>
+                                {token.name} ({token.symbol}) - {token.tokenId}
+                              </SelectItem>
+                            ))
                           )}
+                        </SelectContent>
+                      </Select>
+                      
+                      {field.value && field.value.trim() !== "" && (
+                        <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
+                          <div className="flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <div>
+                              <span className="font-medium">Selected token: </span> 
+                              {tokens.find(t => t.tokenId === field.value)?.name || field.value}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1050,81 +917,46 @@ export default function PhysicalItemsNewPage() {
                 name="tokenId"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Token</FormLabel>
+                    <FormLabel>Token (optional)</FormLabel>
                     <div className="flex flex-col space-y-2">
-                      <Tabs defaultValue="select" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="select">Select Token</TabsTrigger>
-                          <TabsTrigger value="manual">Enter Token ID</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="select" className="pt-2">
-                          <Select 
-                            onValueChange={field.onChange} 
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a token" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {isLoadingTokens ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                </div>
-                              ) : tokens.length === 0 ? (
-                                <div className="text-center py-2 text-sm text-muted-foreground">
-                                  No tokens available
-                                </div>
-                              ) : (
-                                tokens.map((token) => (
-                                  <SelectItem key={token.tokenId} value={token.tokenId}>
-                                    {token.name} ({token.symbol})
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </TabsContent>
-                        <TabsContent value="manual" className="pt-2">
-                          <div className="flex space-x-2">
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter token ID (0.0.xxxx)" 
-                                {...field}
-                              />
-                            </FormControl>
-                            {isVerifyingToken && (
-                              <Button variant="outline" size="icon" disabled>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              </Button>
-                            )}
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                      
-                      {/* Token verification status */}
-                      {tokenVerification && (
-                        <div className={cn(
-                          "text-sm p-2 rounded-md mt-1",
-                          tokenVerification.isValid 
-                            ? "bg-green-50 border border-green-100 text-green-700" 
-                            : "bg-red-50 border border-red-100 text-red-700"
-                        )}>
-                          {tokenVerification.isValid ? (
-                            <div className="flex items-center">
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              <div>
-                                <span className="font-medium">Valid token: </span> 
-                                {tokenVerification.tokenInfo?.symbol} ({tokenVerification.tokenInfo?.name})
-                              </div>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a token" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">No token required</SelectItem>
+                          {isLoadingTokens ? (
+                            <div className="flex items-center justify-center py-2">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : tokens.length === 0 ? (
+                            <div className="text-center py-2 text-sm text-muted-foreground">
+                              No tokens available
                             </div>
                           ) : (
-                            <div className="flex items-center">
-                              <XCircle className="h-4 w-4 mr-2" />
-                              <div>{tokenVerification.message}</div>
-                            </div>
+                            tokens.map((token) => (
+                              <SelectItem key={token.tokenId} value={token.tokenId}>
+                                {token.name} ({token.symbol}) - {token.tokenId}
+                              </SelectItem>
+                            ))
                           )}
+                        </SelectContent>
+                      </Select>
+                      
+                      {field.value && field.value.trim() !== "" && (
+                        <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
+                          <div className="flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <div>
+                              <span className="font-medium">Selected token: </span> 
+                              {tokens.find(t => t.tokenId === field.value)?.name || field.value}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
