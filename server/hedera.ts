@@ -80,6 +80,16 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
     return null;
   }
   
+  // Check if we're in development mode
+  if (process.env.NODE_ENV !== 'production') {
+    // Check if we have operator credentials - if not, we can't properly verify tokens in testnet
+    const hasOperator = client && client.operatorAccountId && client.operatorPublicKey;
+    if (!hasOperator) {
+      console.log("No operator credentials for Hedera client, skipping network verification");
+      return null;
+    }
+  }
+  
   try {
     const token = TokenId.fromString(tokenId);
     
