@@ -16,6 +16,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import PhysicalItemsPage from "@/pages/admin/physical-items";
 import PhysicalItemsFixedPage from "@/pages/admin/physical-items-fixed";
 import PhysicalItemsBasicPage from "@/pages/admin/physical-items-basic";
+import PhysicalItemsNewPage from "@/pages/admin/physical-items-new";
 import TokensPage from "@/pages/admin/tokens";
 import TokenConfigurationsPage from "@/pages/admin/token-configurations";
 import RedemptionsPage from "@/pages/admin/redemptions";
@@ -57,6 +58,13 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <PhysicalItemsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/physical-items-new">
+        {() => (
+          <ProtectedRoute>
+            <PhysicalItemsNewPage />
           </ProtectedRoute>
         )}
       </Route>
