@@ -65,7 +65,6 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
     { label: "Dashboard", icon: <BarChart3 className="h-4 w-4" />, href: "/admin" },
     { label: "Physical Items", icon: <Package className="h-4 w-4" />, href: "/admin/physical-items-new" },
     { label: "Tokens", icon: <Coins className="h-4 w-4" />, href: "/admin/tokens" },
-    { label: "Token Configs", icon: <Settings className="h-4 w-4" />, href: "/admin/token-configurations" },
     { label: "Redemptions", icon: <ShoppingCart className="h-4 w-4" />, href: "/admin/redemptions" },
     { label: "Shops", icon: <Store className="h-4 w-4" />, href: "/admin/shops" },
     { label: "Payment Methods", icon: <CreditCard className="h-4 w-4" />, href: "/admin/payment-methods" },

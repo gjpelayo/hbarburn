@@ -18,7 +18,7 @@ import PhysicalItemsFixedPage from "@/pages/admin/physical-items-fixed";
 import PhysicalItemsBasicPage from "@/pages/admin/physical-items-basic";
 import PhysicalItemsNewPage from "@/pages/admin/physical-items-new";
 import TokensPage from "@/pages/admin/tokens";
-import TokenConfigurationsPage from "@/pages/admin/token-configurations";
+// Token configurations are now handled in the physical items page
 import RedemptionsPage from "@/pages/admin/redemptions";
 import ShopsPageNew from "@/pages/admin/shops-new-fixed";
 import PaymentMethodsPage from "@/pages/admin/payment-methods";
@@ -75,13 +75,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/admin/token-configurations">
-        {() => (
-          <ProtectedRoute>
-            <TokenConfigurationsPage />
-          </ProtectedRoute>
-        )}
-      </Route>
+      {/* Token configurations route removed as it's now integrated with physical items */}
       <Route path="/admin/redemptions">
         {() => (
           <ProtectedRoute>
