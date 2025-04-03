@@ -14,7 +14,7 @@ import OrderTrackingPage from "@/pages/order-tracking";
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
 import PhysicalItemsPage from "@/pages/admin/physical-items";
-import PhysicalItemsSimplifiedPage from "@/pages/admin/physical-items-simplified";
+import PhysicalItemsFixedPage from "@/pages/admin/physical-items-fixed";
 import TokensPage from "@/pages/admin/tokens";
 import TokenConfigurationsPage from "@/pages/admin/token-configurations";
 import RedemptionsPage from "@/pages/admin/redemptions";
@@ -41,7 +41,7 @@ function Router() {
       <Route path="/admin/physical-items">
         {() => (
           <ProtectedRoute>
-            <PhysicalItemsSimplifiedPage />
+            <PhysicalItemsFixedPage />
           </ProtectedRoute>
         )}
       </Route>
