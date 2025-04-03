@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { WalletContextProvider } from "./context/WalletContext";
 import { RedemptionContextProvider } from "./context/RedemptionContext";
 import { AdminProvider } from "./hooks/use-admin";
+import { ThemeProvider } from "./context/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -24,6 +25,7 @@ import RedemptionsPage from "@/pages/admin/redemptions";
 import ShopsPageNew from "@/pages/admin/shops-new-fixed";
 import ShopItemsPage from "@/pages/admin/shop-items-fixed";
 import PaymentMethodsPage from "@/pages/admin/payment-methods";
+import ThemeSettingsPage from "@/pages/admin/theme-settings";
 
 function Router() {
   return (
@@ -113,6 +115,13 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/admin/theme-settings">
+        {() => (
+          <ProtectedRoute>
+            <ThemeSettingsPage />
+          </ProtectedRoute>
+        )}
+      </Route>
       
       {/* 404 Route */}
       <Route component={NotFound} />
@@ -124,12 +133,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AdminProvider>
-        <WalletContextProvider>
-          <RedemptionContextProvider>
-            <Router />
-            <Toaster />
-          </RedemptionContextProvider>
-        </WalletContextProvider>
+        <ThemeProvider>
+          <WalletContextProvider>
+            <RedemptionContextProvider>
+              <Router />
+              <Toaster />
+            </RedemptionContextProvider>
+          </WalletContextProvider>
+        </ThemeProvider>
       </AdminProvider>
     </QueryClientProvider>
   );

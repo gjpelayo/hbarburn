@@ -1,9 +1,11 @@
 import { useWallet } from "@/context/WalletContext";
 import { WalletConnect } from "./wallet/WalletConnect";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TokenThemeSelector } from "@/components/ui/token-theme-selector";
 
 export function Header() {
   return (
-    <header className="bg-white shadow-sm">
+    <header className="bg-background border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
         <div className="flex items-center">
           <svg 
@@ -23,10 +25,16 @@ export function Header() {
             <path d="m9.17 14.83-4.24 4.24"/>
             <circle cx="12" cy="12" r="4"/>
           </svg>
-          <h1 className="text-xl font-semibold text-neutral-800">TokenBurn</h1>
+          <h1 className="text-xl font-semibold">TokenBurn</h1>
         </div>
         
-        <WalletConnect />
+        <div className="flex items-center gap-3">
+          <div className="hidden md:block">
+            <TokenThemeSelector />
+          </div>
+          <ThemeToggle />
+          <WalletConnect />
+        </div>
       </div>
     </header>
   );

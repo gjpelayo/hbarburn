@@ -3,6 +3,8 @@ import { useLocation, Link } from "wouter";
 import { useAdmin } from "@/hooks/use-admin";
 import { useWallet } from "@/context/WalletContext";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TokenThemeSelector } from "@/components/ui/token-theme-selector";
 import { 
   Package, 
   Coins, 
@@ -15,7 +17,8 @@ import {
   Store,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronRight
+  ChevronRight,
+  Palette
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -68,6 +71,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     { label: "Redemptions", icon: <ShoppingCart className="h-4 w-4" />, href: "/admin/redemptions" },
     { label: "Shops", icon: <Store className="h-4 w-4" />, href: "/admin/shops" },
     { label: "Payment Methods", icon: <CreditCard className="h-4 w-4" />, href: "/admin/payment-methods" },
+    { label: "Theme Settings", icon: <Palette className="h-4 w-4" />, href: "/admin/theme-settings" },
   ];
   
   return (
@@ -185,7 +189,10 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex-shrink-0 px-6 py-4 border-b flex items-center justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
-          {/* We can add additional header controls here if needed */}
+          <div className="flex items-center gap-3">
+            <TokenThemeSelector />
+            <ThemeToggle />
+          </div>
         </header>
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30 max-w-full">
