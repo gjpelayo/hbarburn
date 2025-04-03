@@ -309,24 +309,27 @@ export default function PhysicalItemsNewPage() {
           console.log("Item created successfully:", newItem);
           
           // Now create the token configuration that links the token to the physical item
-          const tokenConfigData: InsertTokenConfiguration = {
-            tokenId,
-            physicalItemId: newItem.id,
-            burnAmount,
-            isActive: true
-          };
-          
-          // If we had a mutation for creating token configurations, we would call it here
-          // For now we'll just log it
-          console.log("Creating token configuration:", tokenConfigData);
-          
-          // This token configuration would be created via API call
-          // For example:
-          // createTokenConfigurationMutation.mutate(tokenConfigData);
-          
-          // We're also invalidating the token configurations cache to ensure the UI shows
-          // the most up-to-date data, even though the actual creation is being simulated
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+          // Only create token configuration if a token ID was provided
+          if (tokenId && tokenId.trim() !== "") {
+            const tokenConfigData: InsertTokenConfiguration = {
+              tokenId,
+              physicalItemId: newItem.id,
+              burnAmount,
+              isActive: true
+            };
+            
+            // If we had a mutation for creating token configurations, we would call it here
+            // For now we'll just log it
+            console.log("Creating token configuration:", tokenConfigData);
+            
+            // This token configuration would be created via API call
+            // For example:
+            // createTokenConfigurationMutation.mutate(tokenConfigData);
+            
+            // We're also invalidating the token configurations cache to ensure the UI shows
+            // the most up-to-date data, even though the actual creation is being simulated
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+          }
           
           toast({
             title: "Physical item created",
@@ -435,27 +438,30 @@ export default function PhysicalItemsNewPage() {
           onSuccess: (updatedItem) => {
             console.log("Item updated successfully:", updatedItem);
             
-            // Also update the token configuration
-            const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === selectedItem.id);
-            
-            // Create or update token configuration
-            if (tokenConfig) {
-              console.log("Updating token configuration:", {
-                id: tokenConfig.id,
-                data: {
+            // Only update token configuration if a token ID was provided
+            if (tokenId && tokenId.trim() !== "") {
+              // Also update the token configuration
+              const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === selectedItem.id);
+              
+              // Create or update token configuration
+              if (tokenConfig) {
+                console.log("Updating token configuration:", {
+                  id: tokenConfig.id,
+                  data: {
+                    tokenId,
+                    burnAmount
+                  }
+                });
+                // Would call updateTokenConfigurationMutation here
+              } else {
+                console.log("Creating new token configuration:", {
                   tokenId,
-                  burnAmount
-                }
-              });
-              // Would call updateTokenConfigurationMutation here
-            } else {
-              console.log("Creating new token configuration:", {
-                tokenId,
-                physicalItemId: selectedItem.id,
-                burnAmount,
-                isActive: true
-              });
-              // Would call createTokenConfigurationMutation here
+                  physicalItemId: selectedItem.id,
+                  burnAmount,
+                  isActive: true
+                });
+                // Would call createTokenConfigurationMutation here
+              }
             }
             
             toast({
