@@ -782,6 +782,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Verify a token on Hedera network
+  app.get("/api/tokens/verify/:tokenId", async (req, res) => {
+    try {
+      const { tokenId } = req.params;
+      
+      // Check basic token ID format first
+      if (!isValidTokenId(tokenId)) {
+        return res.status(400).json({ 
+          message: "Invalid token ID format",
+          isValid: false
+        });
+      }
+      
+      // Verify token on Hedera network
+      const tokenInfo = await verifyTokenOnHedera(tokenId);
+      
+      if (!tokenInfo) {
+        // In development mode, allow any token ID format that passes basic validation
+        if (process.env.NODE_ENV !== 'production') {
+          // Get from storage if available
+          const tokenData = await storage.getTokenById(tokenId);
+          
+          if (tokenData) {
+            return res.json({
+              isValid: true,
+              tokenInfo: {
+                tokenId,
+                name: tokenData.name,
+                symbol: tokenData.symbol,
+                decimals: tokenData.decimals,
+                totalSupply: 1000000, // Default value for dev
+                isDeleted: false,
+                tokenType: "FUNGIBLE"
+              }
+            });
+          }
+        }
+        
+        return res.status(404).json({ 
+          message: "Token not found on Hedera network",
+          isValid: false
+        });
+      }
+      
+      // Return token info with validation status
+      res.json({
+        isValid: true,
+        tokenInfo
+      });
+    } catch (error) {
+      console.error("Error verifying token:", error);
+      res.status(500).json({ 
+        message: "Failed to verify token",
+        isValid: false
+      });
+    }
+  });
+  
   // Get tokens by account ID (keep for backward compatibility)
   app.get("/api/tokens/:accountId", async (req, res) => {
     try {

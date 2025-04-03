@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
+import { verifyToken, isValidTokenId, TokenVerificationResponse } from "@/lib/hedera";
 import { 
   PhysicalItem, 
   InsertPhysicalItem,
@@ -14,6 +15,7 @@ import {
   InsertTokenConfiguration
 } from "@shared/schema";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { cn } from "@/lib/utils";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -23,8 +25,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/ui/file-upload";
-import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon, CheckCircle, XCircle } from "lucide-react";
 
 // Enhanced schema for physical item form with token configuration
 const physicalItemSchema = z.object({
@@ -51,6 +54,10 @@ export default function PhysicalItemsNewPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PhysicalItem | null>(null);
+  
+  // State for token verification
+  const [tokenVerification, setTokenVerification] = useState<TokenVerificationResponse | null>(null);
+  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   
   // Fetch physical items
   const { data: physicalItems = [], isLoading } = useQuery<PhysicalItem[]>({
@@ -84,6 +91,53 @@ export default function PhysicalItemsNewPage() {
       burnAmount: 1,
     },
   });
+  
+  // Watch for token ID changes to verify
+  const watchedTokenId = useWatch({
+    control: form.control,
+    name: "tokenId",
+    defaultValue: ""
+  });
+  
+  // Verify token when tokenId changes
+  useEffect(() => {
+    async function verifyTokenId() {
+      if (!watchedTokenId || watchedTokenId.length < 5) {
+        setTokenVerification(null);
+        return;
+      }
+      
+      // Only verify if it's a valid format
+      if (!isValidTokenId(watchedTokenId)) {
+        setTokenVerification({
+          isValid: false,
+          message: "Invalid token ID format"
+        });
+        return;
+      }
+      
+      setIsVerifyingToken(true);
+      try {
+        const result = await verifyToken(watchedTokenId);
+        setTokenVerification(result);
+      } catch (error) {
+        console.error("Error verifying token:", error);
+        setTokenVerification({
+          isValid: false,
+          message: error instanceof Error ? error.message : "Error verifying token"
+        });
+      } finally {
+        setIsVerifyingToken(false);
+      }
+    }
+    
+    // Debounce token verification
+    const timeoutId = setTimeout(() => {
+      verifyTokenId();
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [watchedTokenId]);
 
   // Handler for opening edit dialog
   const handleEditClick = (item: PhysicalItem) => {
@@ -585,35 +639,85 @@ export default function PhysicalItemsNewPage() {
                 control={form.control}
                 name="tokenId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Token</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a token" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingTokens ? (
-                          <div className="flex items-center justify-center py-2">
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <div className="flex flex-col space-y-2">
+                      <Tabs defaultValue="select" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="select">Select Token</TabsTrigger>
+                          <TabsTrigger value="manual">Enter Token ID</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="select" className="pt-2">
+                          <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a token" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {isLoadingTokens ? (
+                                <div className="flex items-center justify-center py-2">
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : tokens.length === 0 ? (
+                                <div className="text-center py-2 text-sm text-muted-foreground">
+                                  No tokens available
+                                </div>
+                              ) : (
+                                tokens.map((token) => (
+                                  <SelectItem key={token.tokenId} value={token.tokenId}>
+                                    {token.name} ({token.symbol})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </TabsContent>
+                        <TabsContent value="manual" className="pt-2">
+                          <div className="flex space-x-2">
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter token ID (0.0.xxxx)" 
+                                {...field}
+                              />
+                            </FormControl>
+                            {isVerifyingToken && (
+                              <Button variant="outline" size="icon" disabled>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </Button>
+                            )}
                           </div>
-                        ) : tokens.length === 0 ? (
-                          <div className="text-center py-2 text-sm text-muted-foreground">
-                            No tokens available
-                          </div>
-                        ) : (
-                          tokens.map((token) => (
-                            <SelectItem key={token.tokenId} value={token.tokenId}>
-                              {token.name} ({token.symbol})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                        </TabsContent>
+                      </Tabs>
+                      
+                      {/* Token verification status */}
+                      {tokenVerification && (
+                        <div className={cn(
+                          "text-sm p-2 rounded-md mt-1",
+                          tokenVerification.isValid 
+                            ? "bg-green-50 border border-green-100 text-green-700" 
+                            : "bg-red-50 border border-red-100 text-red-700"
+                        )}>
+                          {tokenVerification.isValid ? (
+                            <div className="flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              <div>
+                                <span className="font-medium">Valid token: </span> 
+                                {tokenVerification.tokenInfo?.symbol} ({tokenVerification.tokenInfo?.name})
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              <XCircle className="h-4 w-4 mr-2" />
+                              <div>{tokenVerification.message}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -729,35 +833,85 @@ export default function PhysicalItemsNewPage() {
                 control={form.control}
                 name="tokenId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Token</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a token" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingTokens ? (
-                          <div className="flex items-center justify-center py-2">
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <div className="flex flex-col space-y-2">
+                      <Tabs defaultValue="select" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="select">Select Token</TabsTrigger>
+                          <TabsTrigger value="manual">Enter Token ID</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="select" className="pt-2">
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a token" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {isLoadingTokens ? (
+                                <div className="flex items-center justify-center py-2">
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : tokens.length === 0 ? (
+                                <div className="text-center py-2 text-sm text-muted-foreground">
+                                  No tokens available
+                                </div>
+                              ) : (
+                                tokens.map((token) => (
+                                  <SelectItem key={token.tokenId} value={token.tokenId}>
+                                    {token.name} ({token.symbol})
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </TabsContent>
+                        <TabsContent value="manual" className="pt-2">
+                          <div className="flex space-x-2">
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter token ID (0.0.xxxx)" 
+                                {...field}
+                              />
+                            </FormControl>
+                            {isVerifyingToken && (
+                              <Button variant="outline" size="icon" disabled>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </Button>
+                            )}
                           </div>
-                        ) : tokens.length === 0 ? (
-                          <div className="text-center py-2 text-sm text-muted-foreground">
-                            No tokens available
-                          </div>
-                        ) : (
-                          tokens.map((token) => (
-                            <SelectItem key={token.tokenId} value={token.tokenId}>
-                              {token.name} ({token.symbol})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                        </TabsContent>
+                      </Tabs>
+                      
+                      {/* Token verification status */}
+                      {tokenVerification && (
+                        <div className={cn(
+                          "text-sm p-2 rounded-md mt-1",
+                          tokenVerification.isValid 
+                            ? "bg-green-50 border border-green-100 text-green-700" 
+                            : "bg-red-50 border border-red-100 text-red-700"
+                        )}>
+                          {tokenVerification.isValid ? (
+                            <div className="flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              <div>
+                                <span className="font-medium">Valid token: </span> 
+                                {tokenVerification.tokenInfo?.symbol} ({tokenVerification.tokenInfo?.name})
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center">
+                              <XCircle className="h-4 w-4 mr-2" />
+                              <div>{tokenVerification.message}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

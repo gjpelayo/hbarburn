@@ -247,5 +247,53 @@ export function formatTransactionId(transactionId: string): string {
   }
 }
 
+// Interface for token verification response
+export interface TokenVerificationResponse {
+  isValid: boolean;
+  tokenInfo?: {
+    tokenId: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    totalSupply: number;
+    isDeleted: boolean;
+    tokenType: string;
+  };
+  message?: string;
+}
+
+// Verify token on Hedera network
+export async function verifyToken(tokenId: string): Promise<TokenVerificationResponse> {
+  // First validate the token ID format client-side
+  if (!isValidTokenId(tokenId)) {
+    return {
+      isValid: false,
+      message: "Invalid token ID format"
+    };
+  }
+  
+  try {
+    // Call the API to verify the token
+    const response = await fetch(`/api/tokens/verify/${tokenId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        isValid: false,
+        message: errorData.message || `Error: ${response.status}`
+      };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error verifying token:", error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : "Unknown error verifying token"
+    };
+  }
+}
+
 // Export the client for server-side use
 export { client };
