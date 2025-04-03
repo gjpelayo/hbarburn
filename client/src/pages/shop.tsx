@@ -38,27 +38,41 @@ export default function ShopPage() {
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/shops/${shopId}`);
       if (!res.ok) {
-        throw new Error(`Failed to fetch shop: ${res.statusText}`);
+        const errorText = await res.text();
+        throw new Error(`Failed to fetch shop: ${errorText || res.statusText}`);
       }
-      return res.json() as Promise<Shop>;
+      const data = await res.json();
+      if (!data) {
+        throw new Error("No shop data received");
+      }
+      return data as Shop;
     },
     enabled: !!shopId,
   });
 
-  // Fetch physical items
+  // Fetch physical items for this shop
   const {
     data: physicalItems,
     isLoading: isItemsLoading,
     error: itemsError,
   } = useQuery({
-    queryKey: ["/api/physical-items"],
+    queryKey: [`/api/shops/${shopId}/items`],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/physical-items");
+      const res = await apiRequest("GET", `/api/shops/${shopId}/items`);
       if (!res.ok) {
-        throw new Error(`Failed to fetch items: ${res.statusText}`);
+        // If specific shop items endpoint fails, fall back to all items
+        console.warn(`Failed to get shop-specific items for shop ${shopId}, falling back to all items`);
+        const fallbackRes = await apiRequest("GET", "/api/physical-items");
+        if (!fallbackRes.ok) {
+          const errorText = await fallbackRes.text();
+          throw new Error(`Failed to fetch items: ${errorText || fallbackRes.statusText}`);
+        }
+        return await fallbackRes.json() as PhysicalItem[];
       }
-      return res.json() as Promise<PhysicalItem[]>;
+      const data = await res.json();
+      return data as PhysicalItem[];
     },
+    enabled: !!shopId && !!shop,
   });
 
   const isLoading = isShopLoading || isItemsLoading;

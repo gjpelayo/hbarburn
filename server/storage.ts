@@ -5,6 +5,7 @@ import {
   physicalItems,
   tokenConfigurations,
   shops,
+  shopItems,
   type User, 
   type Token,
   type PhysicalItem,
@@ -22,7 +23,9 @@ import {
   type Shop,
   type InsertShop,
   type UpdateShop,
-  type FulfillmentUpdate
+  type FulfillmentUpdate,
+  type ShopItem,
+  type InsertShopItem
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createHash } from 'crypto';
@@ -56,6 +59,11 @@ export interface IStorage {
   createPhysicalItem(item: InsertPhysicalItem): Promise<PhysicalItem>;
   updatePhysicalItem(id: number, data: UpdatePhysicalItem): Promise<PhysicalItem | undefined>;
   deletePhysicalItem(id: number): Promise<boolean>;
+  
+  // Shop Items association methods
+  getShopItems(shopId: number): Promise<PhysicalItem[]>;
+  addItemToShop(shopId: number, physicalItemId: number): Promise<ShopItem>;
+  removeItemFromShop(shopId: number, physicalItemId: number): Promise<boolean>;
   
   // Token methods
   getTokens(): Promise<Token[]>;
@@ -97,10 +105,12 @@ export class MemStorage implements IStorage {
   private tokenConfigurations: Map<number, TokenConfiguration>;
   private redemptions: Map<string, Redemption>;
   private shops: Map<number, Shop>;
+  private shopItems: Map<number, ShopItem>;
   private currentUserId: number;
   private currentPhysicalItemId: number;
   private currentTokenConfigId: number;
   private currentShopId: number;
+  private currentShopItemId: number;
   public sessionStore: session.Store;
 
   constructor() {
@@ -110,10 +120,12 @@ export class MemStorage implements IStorage {
     this.tokenConfigurations = new Map();
     this.redemptions = new Map();
     this.shops = new Map();
+    this.shopItems = new Map();
     this.currentUserId = 1;
     this.currentPhysicalItemId = 1;
     this.currentTokenConfigId = 1;
     this.currentShopId = 1;
+    this.currentShopItemId = 1;
     
     // Create memory session store
     const MemoryStore = createMemoryStore(session);
@@ -285,6 +297,30 @@ export class MemStorage implements IStorage {
     tokenConfigs.forEach(config => {
       this.tokenConfigurations.set(config.id, config);
     });
+    
+    // Seed shop items associations - add items to the first shop
+    for (let i = 1; i <= 3; i++) {
+      const shopItem: ShopItem = {
+        id: this.currentShopItemId++,
+        shopId: 1, // First shop
+        physicalItemId: i,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      this.shopItems.set(shopItem.id, shopItem);
+    }
+    
+    // Add first two items to the second shop
+    for (let i = 1; i <= 2; i++) {
+      const shopItem: ShopItem = {
+        id: this.currentShopItemId++,
+        shopId: 2, // Second shop
+        physicalItemId: i,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      this.shopItems.set(shopItem.id, shopItem);
+    }
   }
 
   // User methods
@@ -612,6 +648,72 @@ export class MemStorage implements IStorage {
     
     this.redemptions.set(orderId, updated);
     return updated;
+  }
+
+  // Shop Items methods
+  async getShopItems(shopId: number): Promise<PhysicalItem[]> {
+    // Find all shop items associated with this shop
+    const shopItemEntries = Array.from(this.shopItems.values())
+      .filter(item => item.shopId === shopId);
+    
+    // Get the corresponding physical items
+    const physicalItems: PhysicalItem[] = [];
+    for (const shopItem of shopItemEntries) {
+      const item = this.physicalItems.get(shopItem.physicalItemId);
+      if (item) {
+        physicalItems.push(item);
+      }
+    }
+    
+    return physicalItems;
+  }
+  
+  async addItemToShop(shopId: number, physicalItemId: number): Promise<ShopItem> {
+    // Check if shop and item exist
+    const shop = this.shops.get(shopId);
+    const item = this.physicalItems.get(physicalItemId);
+    
+    if (!shop || !item) {
+      throw new Error('Shop or physical item not found');
+    }
+    
+    // Check if association already exists
+    const existingAssociation = Array.from(this.shopItems.values()).find(
+      shopItem => shopItem.shopId === shopId && shopItem.physicalItemId === physicalItemId
+    );
+    
+    if (existingAssociation) {
+      return existingAssociation;
+    }
+    
+    // Create new association
+    const id = this.currentShopItemId++;
+    const now = new Date().toISOString();
+    
+    const shopItem: ShopItem = {
+      id,
+      shopId,
+      physicalItemId,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.shopItems.set(id, shopItem);
+    return shopItem;
+  }
+  
+  async removeItemFromShop(shopId: number, physicalItemId: number): Promise<boolean> {
+    // Find the shop item entry
+    const shopItemEntry = Array.from(this.shopItems.entries()).find(
+      ([_, item]) => item.shopId === shopId && item.physicalItemId === physicalItemId
+    );
+    
+    if (!shopItemEntry) {
+      return false;
+    }
+    
+    // Delete the association
+    return this.shopItems.delete(shopItemEntry[0]);
   }
 
   // Shop methods

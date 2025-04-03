@@ -182,6 +182,20 @@ export const insertShopSchema = createInsertSchema(shops).pick({
   isActive: true,
 });
 
+// Shop items association table
+export const shopItems = pgTable("shop_items", {
+  id: serial("id").primaryKey(),
+  shopId: integer("shop_id").notNull().references(() => shops.id),
+  physicalItemId: integer("physical_item_id").notNull().references(() => physicalItems.id),
+  createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+});
+
+export const insertShopItemSchema = createInsertSchema(shopItems).pick({
+  shopId: true,
+  physicalItemId: true,
+});
+
 export const updateShopSchema = insertShopSchema.partial();
 
 // Admin authentication schemas
@@ -214,6 +228,9 @@ export type UpdateToken = z.infer<typeof updateTokenSchema>;
 export type TokenConfiguration = typeof tokenConfigurations.$inferSelect;
 export type InsertTokenConfiguration = z.infer<typeof insertTokenConfigurationSchema>;
 export type UpdateTokenConfiguration = z.infer<typeof updateTokenConfigurationSchema>;
+
+export type ShopItem = typeof shopItems.$inferSelect;
+export type InsertShopItem = z.infer<typeof insertShopItemSchema>;
 
 export type ShippingInfo = z.infer<typeof shippingInfoSchema>;
 export type Redemption = typeof redemptions.$inferSelect;

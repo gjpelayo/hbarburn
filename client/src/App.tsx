@@ -21,6 +21,7 @@ import TokensPage from "@/pages/admin/tokens";
 // Token configurations are now handled in the physical items page
 import RedemptionsPage from "@/pages/admin/redemptions";
 import ShopsPageNew from "@/pages/admin/shops-new-fixed";
+import ShopItemsPage from "@/pages/admin/shop-items";
 import PaymentMethodsPage from "@/pages/admin/payment-methods";
 
 function Router() {
@@ -87,6 +88,13 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <ShopsPageNew />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/shops/:shopId/items">
+        {() => (
+          <ProtectedRoute>
+            <ShopItemsPage />
           </ProtectedRoute>
         )}
       </Route>

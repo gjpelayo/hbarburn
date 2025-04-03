@@ -1,48 +1,38 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/context/WalletContext";
-import { useRedemption } from "@/context/RedemptionContext";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 // Define our physical items
 export interface PhysicalItem {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  imageUrl: string;
-  tokenId: string;
-  tokenSymbol: string;
-  tokenCost: number;
+  imageUrl: string | null;
+  stock: number;
+  tokenConfigurations?: TokenConfiguration[];
 }
 
-const PHYSICAL_ITEMS: PhysicalItem[] = [
+export interface TokenConfiguration {
+  id: number;
+  tokenId: string;
+  physicalItemId: number;
+  burnAmount: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Fallback placeholder items when needed
+const PLACEHOLDER_ITEMS: PhysicalItem[] = [
   {
-    id: "item-1",
-    name: "Limited Edition Merchandise Pack",
-    description: "Exclusive merchandise package including a branded t-shirt, cap, and stickers with the Hedera logo.",
-    imageUrl: "https://placehold.co/300x200/5d45c2/ffffff?text=Merch+Pack",
-    tokenId: "0.0.1001",
-    tokenSymbol: "MERCH",
-    tokenCost: 10
-  },
-  {
-    id: "item-2",
-    name: "Exclusive Branded Apparel",
-    description: "High-quality apparel featuring unique Hedera designs. Includes a premium hoodie and socks.",
-    imageUrl: "https://placehold.co/300x200/5d45c2/ffffff?text=Apparel",
-    tokenId: "0.0.1002",
-    tokenSymbol: "APRL",
-    tokenCost: 15
-  },
-  {
-    id: "item-3",
-    name: "Collectible Hedera-themed Item",
-    description: "Limited edition collectible item featuring Hedera network artwork and custom packaging.",
-    imageUrl: "https://placehold.co/300x200/5d45c2/ffffff?text=Collectible",
-    tokenId: "0.0.1003",
-    tokenSymbol: "CLLCT",
-    tokenCost: 5
+    id: 1,
+    name: "Loading...",
+    description: "Please wait while we load the items.",
+    imageUrl: "https://placehold.co/300x200/5d45c2/ffffff?text=Loading",
+    stock: 0,
+    tokenConfigurations: []
   }
 ];
 
@@ -54,14 +44,34 @@ export function PhysicalItemsGrid({
   physicalItems?: PhysicalItem[];
 }) {
   const { isConnected } = useWallet();
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   
-  // Use provided items or fall back to default items
-  const items = physicalItems || PHYSICAL_ITEMS;
+  // Use provided items or fall back to placeholder items
+  const items = physicalItems || PLACEHOLDER_ITEMS;
   
   const handleSelectItem = (item: PhysicalItem) => {
-    setSelectedItem(item.id);
+    setSelectedItemId(item.id);
     onItemSelect(item);
+  };
+  
+  // Get token information for each item
+  const getTokenInfo = (item: PhysicalItem) => {
+    if (!item.tokenConfigurations || item.tokenConfigurations.length === 0) {
+      return { symbol: "N/A", amount: 0 };
+    }
+    
+    // Use the first active token configuration
+    const activeConfig = item.tokenConfigurations.find(tc => tc.isActive);
+    if (!activeConfig) {
+      return { symbol: "N/A", amount: 0 };
+    }
+    
+    // Get token symbol and burn amount
+    return {
+      tokenId: activeConfig.tokenId,
+      amount: activeConfig.burnAmount,
+      symbol: activeConfig.tokenId.split(".").pop() || "TOKEN" // Fallback to simple ID if no token data
+    };
   };
   
   return (
@@ -72,41 +82,53 @@ export function PhysicalItemsGrid({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items.map((item) => (
-          <Card 
-            key={item.id} 
-            className={`overflow-hidden transition-all ${selectedItem === item.id ? 'ring-2 ring-primary' : ''}`}
-          >
-            <div className="aspect-video w-full overflow-hidden">
-              <img 
-                src={item.imageUrl} 
-                alt={item.name} 
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <CardHeader className="p-4 pb-2">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg font-semibold">{item.name}</CardTitle>
-                <Badge variant="outline" className="bg-primary/10 text-primary">
-                  {item.tokenCost} {item.tokenSymbol}
-                </Badge>
+        {items.map((item) => {
+          const tokenInfo = getTokenInfo(item);
+          return (
+            <Card 
+              key={item.id} 
+              className={`overflow-hidden transition-all ${selectedItemId === item.id ? 'ring-2 ring-primary' : ''}`}
+            >
+              <div className="aspect-video w-full overflow-hidden">
+                <img 
+                  src={item.imageUrl || "https://placehold.co/300x200/5d45c2/ffffff?text=No+Image"} 
+                  alt={item.name} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://placehold.co/300x200/5d45c2/ffffff?text=Error+Loading";
+                  }}
+                />
               </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-sm text-neutral-500">{item.description}</p>
-            </CardContent>
-            <CardFooter className="p-4 pt-0">
-              <Button 
-                onClick={() => handleSelectItem(item)} 
-                variant={selectedItem === item.id ? "default" : "outline"}
-                className="w-full"
-                disabled={!isConnected}
-              >
-                {selectedItem === item.id ? 'Selected' : 'Select Item'}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+              <CardHeader className="p-4 pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg font-semibold">{item.name}</CardTitle>
+                  <Badge variant="outline" className="bg-primary/10 text-primary">
+                    {tokenInfo.amount} {tokenInfo.symbol}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <p className="text-sm text-neutral-500">{item.description}</p>
+                {item.stock > 0 && (
+                  <p className="text-xs text-green-600 mt-2">In stock: {item.stock} available</p>
+                )}
+                {item.stock === 0 && (
+                  <p className="text-xs text-red-600 mt-2">Out of stock</p>
+                )}
+              </CardContent>
+              <CardFooter className="p-4 pt-0">
+                <Button 
+                  onClick={() => handleSelectItem(item)} 
+                  variant={selectedItemId === item.id ? "default" : "outline"}
+                  className="w-full"
+                  disabled={!isConnected || item.stock === 0}
+                >
+                  {selectedItemId === item.id ? 'Selected' : 'Select Item'}
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
       
       {!isConnected && (
@@ -120,5 +142,5 @@ export function PhysicalItemsGrid({
   );
 }
 
-// Export the items data for use elsewhere in the application
-export { PHYSICAL_ITEMS };
+// Export the placeholder items for use elsewhere when needed
+export { PLACEHOLDER_ITEMS };

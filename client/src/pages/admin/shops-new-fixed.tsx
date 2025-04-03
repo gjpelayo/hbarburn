@@ -555,14 +555,22 @@ function ShopCard({
             <span className="text-gray-500">Inactive</span>
           )}
         </div>
-        <a 
-          href={`/shop/${shop.id}`} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-xs text-blue-500 hover:underline"
-        >
-          View Shop Page
-        </a>
+        <div className="flex gap-3">
+          <Link 
+            to={`/admin/shops/${shop.id}/items`}
+            className="text-xs text-primary hover:underline"
+          >
+            Manage Items
+          </Link>
+          <a 
+            href={`/shop/${shop.id}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-blue-500 hover:underline"
+          >
+            View Shop
+          </a>
+        </div>
       </CardFooter>
     </Card>
   );

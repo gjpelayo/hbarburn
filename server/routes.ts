@@ -945,6 +945,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get all physical items associated with a shop
+  app.get("/api/shops/:id/items", async (req, res) => {
+    try {
+      const shopId = parseInt(req.params.id);
+      if (isNaN(shopId)) {
+        return res.status(400).json({ message: "Invalid shop ID" });
+      }
+      
+      const shop = await storage.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      // Only return active shops to public users
+      if (!shop.isActive) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      const items = await storage.getShopItems(shopId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching shop items:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
   // Admin Shop API Routes
   
   // Get all shops (including inactive)
@@ -955,6 +981,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching shops:", error);
       res.status(500).json({ message: "Failed to fetch shops" });
+    }
+  });
+  
+  // Get a single shop (admin version)
+  app.get("/api/admin/shops/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid shop ID format" });
+      }
+      
+      const shop = await storage.getShop(id);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      res.json(shop);
+    } catch (error) {
+      console.error("Error fetching shop:", error);
+      res.status(500).json({ message: "Failed to fetch shop" });
     }
   });
   
@@ -1028,6 +1074,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting shop:", error);
       res.status(500).json({ message: "Failed to delete shop" });
+    }
+  });
+  
+  // Add an item to a shop
+  app.post("/api/admin/shops/:shopId/items", isAdmin, async (req, res) => {
+    try {
+      const shopId = parseInt(req.params.shopId);
+      const { physicalItemId } = req.body;
+      
+      if (isNaN(shopId) || !physicalItemId) {
+        return res.status(400).json({ message: "Invalid shop ID or missing physical item ID" });
+      }
+      
+      const shop = await storage.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      const physicalItemIdNumber = parseInt(physicalItemId);
+      if (isNaN(physicalItemIdNumber)) {
+        return res.status(400).json({ message: "Invalid physical item ID format" });
+      }
+      
+      const physicalItem = await storage.getPhysicalItem(physicalItemIdNumber);
+      if (!physicalItem) {
+        return res.status(404).json({ message: "Physical item not found" });
+      }
+      
+      const shopItem = await storage.addItemToShop(shopId, physicalItemIdNumber);
+      res.status(201).json(shopItem);
+    } catch (error) {
+      console.error("Error adding item to shop:", error);
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to add item to shop" });
+      }
+    }
+  });
+  
+  // Remove an item from a shop
+  app.delete("/api/admin/shops/:shopId/items/:itemId", isAdmin, async (req, res) => {
+    try {
+      const shopId = parseInt(req.params.shopId);
+      const itemId = parseInt(req.params.itemId);
+      
+      if (isNaN(shopId) || isNaN(itemId)) {
+        return res.status(400).json({ message: "Invalid shop ID or item ID format" });
+      }
+      
+      const shop = await storage.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      const physicalItem = await storage.getPhysicalItem(itemId);
+      if (!physicalItem) {
+        return res.status(404).json({ message: "Physical item not found" });
+      }
+      
+      const removed = await storage.removeItemFromShop(shopId, itemId);
+      if (!removed) {
+        return res.status(404).json({ message: "Item not found in shop" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error removing item from shop:", error);
+      res.status(500).json({ message: "Failed to remove item from shop" });
+    }
+  });
+  
+  // Get all items in a shop (admin version)
+  app.get("/api/admin/shops/:shopId/items", isAdmin, async (req, res) => {
+    try {
+      const shopId = parseInt(req.params.shopId);
+      
+      if (isNaN(shopId)) {
+        return res.status(400).json({ message: "Invalid shop ID format" });
+      }
+      
+      const shop = await storage.getShop(shopId);
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+      
+      const items = await storage.getShopItems(shopId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching shop items:", error);
+      res.status(500).json({ message: "Failed to fetch shop items" });
     }
   });
   
