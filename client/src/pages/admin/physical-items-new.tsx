@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/ui/file-upload";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon, CheckCircle, XCircle } from "lucide-react";
 
 // Enhanced schema for physical item form with token configuration
@@ -38,6 +39,7 @@ const physicalItemSchema = z.object({
       "Please provide a valid image URL or upload an image")
     .optional(),
   stock: z.number().min(0, "Stock cannot be negative").default(0),
+  hasVariations: z.boolean().default(false),
   tokenId: z.string().min(1, "Please select a token"),
   burnAmount: z.number().min(1, "Burn amount must be at least 1").default(1),
 });
@@ -81,6 +83,7 @@ export default function PhysicalItemsNewPage() {
     description: string;
     imageUrl: string;
     stock: number;
+    hasVariations: boolean;
     tokenId: string;
     burnAmount: number;
   }>({
@@ -90,6 +93,7 @@ export default function PhysicalItemsNewPage() {
       description: "",
       imageUrl: "",
       stock: 0,
+      hasVariations: false,
       tokenId: "",
       burnAmount: 1,
     },
@@ -154,6 +158,7 @@ export default function PhysicalItemsNewPage() {
       description: item.description || "",
       imageUrl: item.imageUrl || "",
       stock: item.stock || 0,
+      hasVariations: item.hasVariations || false,
       tokenId: tokenConfig?.tokenId || "",
       burnAmount: tokenConfig?.burnAmount || 1
     });
@@ -245,7 +250,7 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const { name, description, imageUrl, stock, tokenId, burnAmount } = form.getValues();
+    const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
     
     // First check if token is valid before proceeding
     if (tokenVerification && !tokenVerification.isValid) {
@@ -298,7 +303,7 @@ export default function PhysicalItemsNewPage() {
     // Create the physical item only if token is valid or verification succeeded
     try {
       createPhysicalItemMutation.mutate(
-        { name, description, imageUrl, stock } as InsertPhysicalItem, 
+        { name, description, imageUrl, stock, hasVariations } as InsertPhysicalItem, 
         {
         onSuccess: (newItem) => {
           console.log("Item created successfully:", newItem);
@@ -372,8 +377,8 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const { name, description, imageUrl, stock, tokenId, burnAmount } = form.getValues();
-    const itemData = { name, description, imageUrl, stock };
+    const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
+    const itemData = { name, description, imageUrl, stock, hasVariations };
     
     // First check if token is valid before proceeding
     if (tokenVerification && !tokenVerification.isValid) {
@@ -511,6 +516,7 @@ export default function PhysicalItemsNewPage() {
             description: "",
             imageUrl: "",
             stock: 0,
+            hasVariations: false,
             tokenId: "",
             burnAmount: 1
           });
@@ -703,6 +709,28 @@ export default function PhysicalItemsNewPage() {
                     <FormDescription>
                       How many of this item are available for redemption
                     </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="hasVariations"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Has Variations</FormLabel>
+                      <FormDescription>
+                        Enable if this item has variations like sizes, colors, etc.
+                      </FormDescription>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -927,7 +955,28 @@ export default function PhysicalItemsNewPage() {
                   </FormItem>
                 )}
               />
-
+              
+              <FormField
+                control={form.control}
+                name="hasVariations"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Has Variations</FormLabel>
+                      <FormDescription>
+                        Enable if this item has variations like sizes, colors, etc.
+                      </FormDescription>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <FormField
                 control={form.control}
