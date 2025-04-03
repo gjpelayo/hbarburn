@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get token configurations by physical item
-  app.get("/api/admin/token-configurations/physical-item/:id", async (req, res) => {
+  app.get("/api/admin/token-configurations/physical-item/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -513,7 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get token configurations by token
-  app.get("/api/admin/token-configurations/token/:tokenId", async (req, res) => {
+  app.get("/api/admin/token-configurations/token/:tokenId", isAdmin, async (req, res) => {
     try {
       const { tokenId } = req.params;
       const configurations = await storage.getTokenConfigurationsByToken(tokenId);
@@ -521,6 +521,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching token configurations:", error);
       res.status(500).json({ message: "Failed to fetch token configurations" });
+    }
+  });
+  
+  // Get a single token configuration by ID
+  app.get("/api/admin/token-configurations/:id([0-9]+)", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const configuration = await storage.getTokenConfiguration(id);
+      
+      if (!configuration) {
+        return res.status(404).json({ message: "Token configuration not found" });
+      }
+      
+      res.json(configuration);
+    } catch (error) {
+      console.error("Error fetching token configuration:", error);
+      res.status(500).json({ message: "Failed to fetch token configuration" });
     }
   });
   
