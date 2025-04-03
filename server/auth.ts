@@ -106,15 +106,26 @@ export function setupAuth(app: Express) {
     console.log('User in session:', req.session.user);
     console.log('User in passport:', req.user);
     
-    // Add user to session if it's not there but present in passport
-    // This happens because sometimes the session data is not properly synced
+    // First attempt - check if we need to sync from passport to session
     if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
       req.session.user = req.user;
       req.session.isLoggedIn = true;
       console.log('Syncing user from passport to session:', req.user.id);
     }
     
-    // First check if there's a user in passport session
+    // Second attempt - check if we need to sync from session to passport
+    if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
+      console.log('Attempting to login user from session to passport:', req.session.user.id);
+      req.login(req.session.user, (err) => {
+        if (err) {
+          console.error("Error logging in with passport from admin/user endpoint:", err);
+        } else {
+          console.log('Successfully logged in user from session to passport:', req.session.user.id);
+        }
+      });
+    }
+    
+    // Third attempt - check again after potential passport login
     if (req.isAuthenticated() && req.user) {
       // User is authenticated via passport, check admin status
       if (req.user.isAdmin) {
@@ -126,19 +137,14 @@ export function setupAuth(app: Express) {
       }
     }
     
-    // If not in passport session, check session storage
+    // Fourth attempt - check session if passport still doesn't work
     if (req.session.user && req.session.isLoggedIn) {
       // If user is in session and marked as admin, return them
       if (req.session.user.isAdmin) {
         console.log('Admin access granted via session for user:', req.session.user.id);
-        // Also try to login with passport for future requests
-        req.login(req.session.user, (err) => {
-          if (err) {
-            console.error("Error logging in with passport from session:", err);
-          }
-        });
         return res.json(req.session.user);
       } else {
+        console.log('Admin access denied - session user not admin:', req.session.user.id);
         return res.sendStatus(403); // Forbidden - not an admin
       }
     }

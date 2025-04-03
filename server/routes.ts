@@ -47,23 +47,32 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
   console.log('Admin check - Session user:', req.session.user);
   console.log('Admin check - Passport user:', req.user);
   
+  // First attempt - check if we need to sync from passport to session
+  if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
+    console.log('Syncing user from passport to session in isAdmin middleware:', req.user.id);
+    req.session.user = req.user;
+    req.session.isLoggedIn = true;
+  }
+  
+  // Second attempt - check if we need to sync from session to passport
+  if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
+    console.log('Attempting to login user from session to passport in isAdmin middleware:', req.session.user.id);
+    req.login(req.session.user, (err) => {
+      if (err) {
+        console.error("Error logging in with passport from isAdmin middleware:", err);
+      }
+    });
+  }
+  
   // Check passport authentication first
   if (req.isAuthenticated() && req.user && req.user.isAdmin) {
-    console.log('Admin access granted via passport');
+    console.log('Admin access granted via passport for user:', req.user.id);
     return next();
   }
   
   // Fall back to session if passport isn't used
   if (req.session.isLoggedIn && req.session.user && req.session.user.isAdmin) {
-    console.log('Admin access granted via session');
-    // Also login to passport if not already done
-    if (!req.isAuthenticated()) {
-      req.login(req.session.user, (err) => {
-        if (err) {
-          console.error("Error logging in with passport from isAdmin middleware:", err);
-        }
-      });
-    }
+    console.log('Admin access granted via session for user:', req.session.user.id);
     return next();
   }
   
