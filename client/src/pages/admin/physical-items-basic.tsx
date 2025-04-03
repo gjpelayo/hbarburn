@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
 import { PhysicalItem, InsertPhysicalItem } from "@shared/schema";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { useLocation } from "wouter";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon, Layers, ArrowRight } from "lucide-react";
 
 // Simple schema for physical item form
 const physicalItemSchema = z.object({
@@ -27,6 +29,7 @@ const physicalItemSchema = z.object({
 
 export default function PhysicalItemsBasicPage() {
   const { toast } = useToast();
+  const [_, navigate] = useLocation();
   const { 
     createPhysicalItemMutation, 
     updatePhysicalItemMutation, 
@@ -186,7 +189,17 @@ export default function PhysicalItemsBasicPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   {item.description || "No description provided."}
                 </p>
-                <div className="flex justify-between gap-2">
+                
+                {item.hasVariations && (
+                  <div className="mb-3">
+                    <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                      <Layers className="h-3 w-3" />
+                      Has Variations
+                    </Badge>
+                  </div>
+                )}
+                
+                <div className="flex justify-between gap-2 mb-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -206,6 +219,16 @@ export default function PhysicalItemsBasicPage() {
                     Delete
                   </Button>
                 </div>
+                
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="w-full" 
+                  onClick={() => navigate(`/admin/physical-item-variations/${item.id}`)}
+                >
+                  <Layers className="h-3 w-3 mr-1" /> 
+                  Manage Variations <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
               </CardContent>
             </Card>
           ))}

@@ -17,6 +17,7 @@ import PhysicalItemsPage from "@/pages/admin/physical-items";
 import PhysicalItemsFixedPage from "@/pages/admin/physical-items-fixed";
 import PhysicalItemsBasicPage from "@/pages/admin/physical-items-basic";
 import PhysicalItemsNewPage from "@/pages/admin/physical-items-new";
+import PhysicalItemVariationsPage from "@/pages/admin/physical-item-variations";
 import TokensPage from "@/pages/admin/tokens";
 // Token configurations are now handled in the physical items page
 import RedemptionsPage from "@/pages/admin/redemptions";
@@ -66,6 +67,13 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <PhysicalItemsNewPage />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/admin/physical-item-variations/:itemId">
+        {() => (
+          <ProtectedRoute>
+            <PhysicalItemVariationsPage />
           </ProtectedRoute>
         )}
       </Route>

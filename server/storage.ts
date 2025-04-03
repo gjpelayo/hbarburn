@@ -6,6 +6,8 @@ import {
   tokenConfigurations,
   shops,
   shopItems,
+  itemVariations,
+  itemVariantStocks,
   type User, 
   type Token,
   type PhysicalItem,
@@ -25,7 +27,12 @@ import {
   type UpdateShop,
   type FulfillmentUpdate,
   type ShopItem,
-  type InsertShopItem
+  type InsertShopItem,
+  type ItemVariation,
+  type InsertItemVariation,
+  type UpdateItemVariation,
+  type ItemVariantStock,
+  type InsertItemVariantStock
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createHash } from 'crypto';
@@ -87,6 +94,19 @@ export interface IStorage {
   getRedemptionByOrderId(orderId: string): Promise<Redemption | undefined>;
   createRedemption(data: CreateRedemptionData): Promise<Redemption>;
   updateRedemption(orderId: string, data: UpdateRedemption): Promise<Redemption | undefined>;
+  
+  // Item Variation methods
+  getItemVariations(physicalItemId: number): Promise<ItemVariation[]>;
+  createItemVariation(data: InsertItemVariation): Promise<ItemVariation>;
+  updateItemVariation(id: number, data: UpdateItemVariation): Promise<ItemVariation | undefined>;
+  deleteItemVariation(id: number): Promise<boolean>;
+  
+  // Item Variant Stock methods
+  getItemVariantStocks(physicalItemId: number): Promise<ItemVariantStock[]>;
+  getItemVariantStockByCombination(physicalItemId: number, combination: string): Promise<ItemVariantStock | undefined>;
+  createItemVariantStock(data: InsertItemVariantStock): Promise<ItemVariantStock>;
+  updateItemVariantStock(id: number, stock: number): Promise<ItemVariantStock | undefined>;
+  deleteItemVariantStock(id: number): Promise<boolean>;
 }
 
 interface CreateRedemptionData {
@@ -106,11 +126,15 @@ export class MemStorage implements IStorage {
   private redemptions: Map<string, Redemption>;
   private shops: Map<number, Shop>;
   private shopItems: Map<number, ShopItem>;
+  private itemVariations: Map<number, ItemVariation>;
+  private itemVariantStocks: Map<number, ItemVariantStock>;
   private currentUserId: number;
   private currentPhysicalItemId: number;
   private currentTokenConfigId: number;
   private currentShopId: number;
   private currentShopItemId: number;
+  private currentItemVariationId: number;
+  private currentItemVariantStockId: number;
   public sessionStore: session.Store;
 
   constructor() {
@@ -121,11 +145,15 @@ export class MemStorage implements IStorage {
     this.redemptions = new Map();
     this.shops = new Map();
     this.shopItems = new Map();
+    this.itemVariations = new Map();
+    this.itemVariantStocks = new Map();
     this.currentUserId = 1;
     this.currentPhysicalItemId = 1;
     this.currentTokenConfigId = 1;
     this.currentShopId = 1;
     this.currentShopItemId = 1;
+    this.currentItemVariationId = 1;
+    this.currentItemVariantStockId = 1;
     
     // Create memory session store
     const MemoryStore = createMemoryStore(session);
@@ -163,6 +191,7 @@ export class MemStorage implements IStorage {
         description: "A collection of limited edition merchandise including t-shirts, stickers, and a tote bag.",
         imageUrl: "https://example.com/merch-pack.jpg",
         stock: 100,
+        hasVariations: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -172,6 +201,7 @@ export class MemStorage implements IStorage {
         description: "High-quality branded apparel with blockchain-themed designs.",
         imageUrl: "https://example.com/apparel.jpg",
         stock: 50,
+        hasVariations: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -181,6 +211,7 @@ export class MemStorage implements IStorage {
         description: "Rare collectible item for Hedera enthusiasts. Limited supply available.",
         imageUrl: "https://example.com/collectible.jpg",
         stock: 25,
+        hasVariations: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -419,6 +450,7 @@ export class MemStorage implements IStorage {
       description: item.description || null,
       imageUrl: item.imageUrl || null,
       stock: item.stock || 0,
+      hasVariations: item.hasVariations || false,
       createdAt: now,
       updatedAt: now
     };
@@ -763,6 +795,96 @@ export class MemStorage implements IStorage {
 
   async deleteShop(id: number): Promise<boolean> {
     return this.shops.delete(id);
+  }
+
+  // Item Variation methods
+  async getItemVariations(physicalItemId: number): Promise<ItemVariation[]> {
+    return Array.from(this.itemVariations.values()).filter(
+      variation => variation.physicalItemId === physicalItemId
+    );
+  }
+
+  async createItemVariation(data: InsertItemVariation): Promise<ItemVariation> {
+    const id = this.currentItemVariationId++;
+    const now = new Date().toISOString();
+    
+    const itemVariation: ItemVariation = {
+      id,
+      physicalItemId: data.physicalItemId,
+      name: data.name,
+      options: data.options,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.itemVariations.set(id, itemVariation);
+    return itemVariation;
+  }
+
+  async updateItemVariation(id: number, data: UpdateItemVariation): Promise<ItemVariation | undefined> {
+    const variation = this.itemVariations.get(id);
+    if (!variation) return undefined;
+    
+    const updated: ItemVariation = {
+      ...variation,
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    
+    this.itemVariations.set(id, updated);
+    return updated;
+  }
+
+  async deleteItemVariation(id: number): Promise<boolean> {
+    return this.itemVariations.delete(id);
+  }
+
+  // Item Variant Stock methods
+  async getItemVariantStocks(physicalItemId: number): Promise<ItemVariantStock[]> {
+    return Array.from(this.itemVariantStocks.values()).filter(
+      stock => stock.physicalItemId === physicalItemId
+    );
+  }
+
+  async getItemVariantStockByCombination(physicalItemId: number, combination: string): Promise<ItemVariantStock | undefined> {
+    return Array.from(this.itemVariantStocks.values()).find(
+      stock => stock.physicalItemId === physicalItemId && stock.combination === combination
+    );
+  }
+
+  async createItemVariantStock(data: InsertItemVariantStock): Promise<ItemVariantStock> {
+    const id = this.currentItemVariantStockId++;
+    const now = new Date().toISOString();
+    
+    const itemVariantStock: ItemVariantStock = {
+      id,
+      physicalItemId: data.physicalItemId,
+      combination: data.combination,
+      stock: data.stock || 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.itemVariantStocks.set(id, itemVariantStock);
+    return itemVariantStock;
+  }
+
+  async updateItemVariantStock(id: number, stock: number): Promise<ItemVariantStock | undefined> {
+    const variantStock = this.itemVariantStocks.get(id);
+    if (!variantStock) return undefined;
+    
+    const updated: ItemVariantStock = {
+      ...variantStock,
+      stock,
+      updatedAt: new Date().toISOString()
+    };
+    
+    this.itemVariantStocks.set(id, updated);
+    return updated;
+  }
+
+  async deleteItemVariantStock(id: number): Promise<boolean> {
+    return this.itemVariantStocks.delete(id);
   }
 }
 

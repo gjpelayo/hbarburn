@@ -29,6 +29,27 @@ export const physicalItems = pgTable("physical_items", {
   description: text("description"),
   imageUrl: text("image_url"),
   stock: integer("stock").default(0),
+  hasVariations: boolean("has_variations").default(false).notNull(),
+  createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+});
+
+// Item variations table
+export const itemVariations = pgTable("item_variations", {
+  id: serial("id").primaryKey(),
+  physicalItemId: integer("physical_item_id").notNull().references(() => physicalItems.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(), // Like "Size", "Color"
+  options: text("options").array().notNull(), // ["S", "M", "L"] or ["Red", "Blue", "Green"]
+  createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+});
+
+// Item variant combinations table (for tracking stock of each specific combination)
+export const itemVariantStocks = pgTable("item_variant_stocks", {
+  id: serial("id").primaryKey(),
+  physicalItemId: integer("physical_item_id").notNull().references(() => physicalItems.id, { onDelete: 'cascade' }),
+  combination: text("combination").notNull(), // JSON string like '{"Size":"M","Color":"Red"}'
+  stock: integer("stock").default(0).notNull(),
   createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 });
@@ -38,9 +59,24 @@ export const insertPhysicalItemSchema = createInsertSchema(physicalItems).pick({
   description: true,
   imageUrl: true,
   stock: true,
+  hasVariations: true,
 });
 
 export const updatePhysicalItemSchema = insertPhysicalItemSchema.partial();
+
+export const insertItemVariationSchema = createInsertSchema(itemVariations).pick({
+  physicalItemId: true,
+  name: true,
+  options: true,
+});
+
+export const updateItemVariationSchema = insertItemVariationSchema.partial();
+
+export const insertItemVariantStockSchema = createInsertSchema(itemVariantStocks).pick({
+  physicalItemId: true,
+  combination: true,
+  stock: true,
+});
 
 // Tokens table
 export const tokens = pgTable("tokens", {
@@ -220,6 +256,13 @@ export type UpdateShop = z.infer<typeof updateShopSchema>;
 export type PhysicalItem = typeof physicalItems.$inferSelect;
 export type InsertPhysicalItem = z.infer<typeof insertPhysicalItemSchema>;
 export type UpdatePhysicalItem = z.infer<typeof updatePhysicalItemSchema>;
+
+export type ItemVariation = typeof itemVariations.$inferSelect;
+export type InsertItemVariation = z.infer<typeof insertItemVariationSchema>;
+export type UpdateItemVariation = z.infer<typeof updateItemVariationSchema>;
+
+export type ItemVariantStock = typeof itemVariantStocks.$inferSelect;
+export type InsertItemVariantStock = z.infer<typeof insertItemVariantStockSchema>;
 
 export type Token = typeof tokens.$inferSelect;
 export type InsertToken = z.infer<typeof insertTokenSchema>;

@@ -15,6 +15,9 @@ import {
   updateTokenConfigurationSchema,
   insertShopSchema,
   updateShopSchema,
+  insertItemVariationSchema,
+  updateItemVariationSchema,
+  insertItemVariantStockSchema,
   type User,
   type WalletAuthCredentials
 } from "@shared/schema";
@@ -1411,6 +1414,182 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching redemption:", error);
       res.status(500).json({ message: "Failed to fetch redemption" });
+    }
+  });
+
+  // Item Variations routes
+  app.get("/api/physical-items/:id/variations", async (req, res) => {
+    try {
+      const physicalItemId = parseInt(req.params.id);
+      const variations = await storage.getItemVariations(physicalItemId);
+      res.json(variations);
+    } catch (error: any) {
+      console.error("Error fetching variations:", error);
+      res.status(500).json({ message: "Failed to fetch item variations" });
+    }
+  });
+
+  app.post("/api/physical-items/:id/variations", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const physicalItemId = parseInt(req.params.id);
+      const result = insertItemVariationSchema.safeParse({
+        ...req.body,
+        physicalItemId
+      });
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: result.error.format() 
+        });
+      }
+      
+      // Make sure the physical item exists
+      const item = await storage.getPhysicalItem(physicalItemId);
+      if (!item) {
+        return res.status(404).json({ message: "Physical item not found" });
+      }
+      
+      // Update the physical item to indicate it has variations
+      await storage.updatePhysicalItem(physicalItemId, { hasVariations: true });
+      
+      // Create the variation
+      const variation = await storage.createItemVariation(result.data);
+      res.status(201).json(variation);
+    } catch (error: any) {
+      console.error("Error creating variation:", error);
+      res.status(500).json({ message: "Failed to create item variation" });
+    }
+  });
+
+  app.patch("/api/physical-items/:itemId/variations/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const result = updateItemVariationSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: result.error.format() 
+        });
+      }
+      
+      const variation = await storage.updateItemVariation(id, result.data);
+      
+      if (!variation) {
+        return res.status(404).json({ message: "Item variation not found" });
+      }
+      
+      res.json(variation);
+    } catch (error: any) {
+      console.error("Error updating variation:", error);
+      res.status(500).json({ message: "Failed to update item variation" });
+    }
+  });
+
+  app.delete("/api/physical-items/:itemId/variations/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const physicalItemId = parseInt(req.params.itemId);
+      
+      // Delete the variation
+      const success = await storage.deleteItemVariation(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Item variation not found" });
+      }
+      
+      // Check if this was the last variation
+      const remainingVariations = await storage.getItemVariations(physicalItemId);
+      
+      if (remainingVariations.length === 0) {
+        // Update the item to indicate it no longer has variations
+        await storage.updatePhysicalItem(physicalItemId, { hasVariations: false });
+      }
+      
+      res.status(204).end();
+    } catch (error: any) {
+      console.error("Error deleting variation:", error);
+      res.status(500).json({ message: "Failed to delete item variation" });
+    }
+  });
+  
+  // Item Variant Stock routes
+  app.get("/api/physical-items/:id/variant-stocks", async (req, res) => {
+    try {
+      const physicalItemId = parseInt(req.params.id);
+      const stocks = await storage.getItemVariantStocks(physicalItemId);
+      res.json(stocks);
+    } catch (error: any) {
+      console.error("Error fetching variant stocks:", error);
+      res.status(500).json({ message: "Failed to fetch variant stocks" });
+    }
+  });
+
+  app.post("/api/physical-items/:id/variant-stocks", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const physicalItemId = parseInt(req.params.id);
+      
+      // Check if combination already exists
+      const existingStock = await storage.getItemVariantStockByCombination(
+        physicalItemId, 
+        req.body.combination
+      );
+      
+      if (existingStock) {
+        return res.status(400).json({ 
+          message: "A stock entry for this combination already exists" 
+        });
+      }
+      
+      const stock = await storage.createItemVariantStock({
+        physicalItemId,
+        combination: req.body.combination,
+        stock: req.body.stock || 0
+      });
+      
+      res.status(201).json(stock);
+    } catch (error: any) {
+      console.error("Error creating variant stock:", error);
+      res.status(500).json({ message: "Failed to create variant stock" });
+    }
+  });
+
+  app.patch("/api/physical-items/:itemId/variant-stocks/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { stock } = req.body;
+      
+      if (typeof stock !== 'number' || stock < 0) {
+        return res.status(400).json({ message: "Stock must be a non-negative number" });
+      }
+      
+      const updatedStock = await storage.updateItemVariantStock(id, stock);
+      
+      if (!updatedStock) {
+        return res.status(404).json({ message: "Variant stock not found" });
+      }
+      
+      res.json(updatedStock);
+    } catch (error: any) {
+      console.error("Error updating variant stock:", error);
+      res.status(500).json({ message: "Failed to update variant stock" });
+    }
+  });
+
+  app.delete("/api/physical-items/:itemId/variant-stocks/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteItemVariantStock(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Variant stock not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error: any) {
+      console.error("Error deleting variant stock:", error);
+      res.status(500).json({ message: "Failed to delete variant stock" });
     }
   });
 
