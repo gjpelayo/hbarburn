@@ -537,7 +537,7 @@ export default function PhysicalItemsNewPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {physicalItems.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
+            <Card key={item.id} className="hover:shadow-md transition-shadow flex flex-col">
               {item.imageUrl && (
                 <div className="h-36 overflow-hidden border-b">
                   <img 
@@ -547,61 +547,65 @@ export default function PhysicalItemsNewPage() {
                   />
                 </div>
               )}
-              <CardContent className="p-6">
-                <div className="mb-2">
-                  <h3 className="font-medium">{item.name}</h3>
+              <CardContent className="p-6 flex-1 flex flex-col">
+                <div>
+                  <div className="mb-2">
+                    <h3 className="font-medium">{item.name}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {item.description || "No description provided."}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {item.description || "No description provided."}
-                </p>
                 
-                {/* Token requirement information */}
-                {(() => {
-                  const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === item.id);
-                  const token = tokens.find(t => tokenConfig && t.tokenId === tokenConfig.tokenId);
-                  
-                  if (tokenConfig && token) {
-                    return (
-                      <div className="mb-4 p-2 bg-blue-50 rounded-md border border-blue-100">
-                        <div className="text-xs text-blue-700 font-medium mb-1">TOKEN REQUIREMENT</div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm font-medium">
-                            {token.symbol}
-                          </div>
-                          <div className="text-sm bg-blue-100 px-2 py-1 rounded-md">
-                            Burn: {tokenConfig.burnAmount}
+                <div className="mt-auto">
+                  {/* Token requirement information */}
+                  {(() => {
+                    const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === item.id);
+                    const token = tokens.find(t => tokenConfig && t.tokenId === tokenConfig.tokenId);
+                    
+                    if (tokenConfig && token) {
+                      return (
+                        <div className="mb-4 p-2 bg-blue-50 rounded-md border border-blue-100">
+                          <div className="text-xs text-blue-700 font-medium mb-1">TOKEN REQUIREMENT</div>
+                          <div className="flex justify-between items-center">
+                            <div className="text-sm font-medium">
+                              {token.symbol}
+                            </div>
+                            <div className="text-sm bg-blue-100 px-2 py-1 rounded-md">
+                              Burn: {tokenConfig.burnAmount}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="mb-4 p-2 bg-gray-50 rounded-md border border-gray-100">
-                        <div className="text-xs text-gray-500">No token configuration</div>
-                      </div>
-                    );
-                  }
-                })()}
-                
-                <div className="flex justify-between gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => handleEditClick(item)}
-                  >
-                    <PencilIcon className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteClick(item)}
-                  >
-                    <Trash2Icon className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
+                      );
+                    } else {
+                      return (
+                        <div className="mb-4 p-2 bg-gray-50 rounded-md border border-gray-100">
+                          <div className="text-xs text-gray-500">No token configuration</div>
+                        </div>
+                      );
+                    }
+                  })()}
+                  
+                  <div className="flex justify-between gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleEditClick(item)}
+                    >
+                      <PencilIcon className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteClick(item)}
+                    >
+                      <Trash2Icon className="h-3 w-3 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

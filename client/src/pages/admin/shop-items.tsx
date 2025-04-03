@@ -269,7 +269,7 @@ export default function ShopItemsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {shopItems.map((item) => (
-                  <Card key={item.id}>
+                  <Card key={item.id} className="flex flex-col">
                     <div className="aspect-video w-full overflow-hidden">
                       <img 
                         src={item.imageUrl || "https://placehold.co/400x200?text=No+Image"} 
@@ -286,8 +286,8 @@ export default function ShopItemsPage() {
                         {item.description}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-center justify-between">
+                    <CardContent className="p-4 pt-0 flex-1 flex flex-col">
+                      <div className="flex items-center justify-between mb-4">
                         <Badge variant={(item.stock ?? 0) > 0 ? "outline" : "destructive"}>
                           {(item.stock ?? 0) > 0 ? `Stock: ${item.stock}` : "Out of stock"}
                         </Badge>
@@ -301,22 +301,23 @@ export default function ShopItemsPage() {
                         )}
                         */}
                       </div>
+                      
+                      <div className="mt-auto">
+                        <Button 
+                          variant="destructive" 
+                          className="w-full"
+                          onClick={() => handleRemoveItem(item.id)}
+                          disabled={removeItemMutation.isPending}
+                        >
+                          {removeItemMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Trash className="h-4 w-4 mr-2" />
+                          )}
+                          Remove from Shop
+                        </Button>
+                      </div>
                     </CardContent>
-                    <CardFooter className="p-4 pt-0">
-                      <Button 
-                        variant="destructive" 
-                        className="w-full"
-                        onClick={() => handleRemoveItem(item.id)}
-                        disabled={removeItemMutation.isPending}
-                      >
-                        {removeItemMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Trash className="h-4 w-4 mr-2" />
-                        )}
-                        Remove from Shop
-                      </Button>
-                    </CardFooter>
                   </Card>
                 ))}
               </div>
