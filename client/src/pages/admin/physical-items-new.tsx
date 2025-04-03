@@ -49,7 +49,9 @@ export default function PhysicalItemsNewPage() {
   const { 
     createPhysicalItemMutation, 
     updatePhysicalItemMutation, 
-    deletePhysicalItemMutation 
+    deletePhysicalItemMutation,
+    createTokenConfigurationMutation,
+    updateTokenConfigurationMutation
   } = useAdmin();
   
   // State for dialogs
@@ -343,17 +345,23 @@ export default function PhysicalItemsNewPage() {
               isActive: true
             };
             
-            // If we had a mutation for creating token configurations, we would call it here
-            // For now we'll just log it
-            console.log("Creating token configuration:", tokenConfigData);
-            
-            // This token configuration would be created via API call
-            // For example:
-            // createTokenConfigurationMutation.mutate(tokenConfigData);
-            
-            // We're also invalidating the token configurations cache to ensure the UI shows
-            // the most up-to-date data, even though the actual creation is being simulated
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+            // Create the token configuration through the API
+            createTokenConfigurationMutation.mutate(tokenConfigData, {
+              onSuccess: (newConfig: TokenConfiguration) => {
+                console.log("Token configuration created successfully:", newConfig);
+                
+                // Invalidate relevant queries to ensure the UI shows the most up-to-date data
+                queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+              },
+              onError: (error: Error) => {
+                console.error("Error creating token configuration:", error);
+                toast({
+                  title: "Warning",
+                  description: "Physical item was created but token configuration failed. You can add it later.",
+                  variant: "destructive",
+                });
+              }
+            });
           }
           
           toast({
@@ -477,7 +485,26 @@ export default function PhysicalItemsNewPage() {
                     burnAmount
                   }
                 });
-                // Would call updateTokenConfigurationMutation here
+                updateTokenConfigurationMutation.mutate({
+                  id: tokenConfig.id,
+                  data: {
+                    tokenId,
+                    burnAmount,
+                    isActive: true
+                  }
+                }, {
+                  onSuccess: (updatedConfig: TokenConfiguration) => {
+                    console.log("Token configuration updated successfully:", updatedConfig);
+                  },
+                  onError: (error: Error) => {
+                    console.error("Error updating token configuration:", error);
+                    toast({
+                      title: "Warning",
+                      description: "Physical item was updated but token configuration failed. You can update it later.",
+                      variant: "destructive",
+                    });
+                  }
+                })
               } else {
                 console.log("Creating new token configuration:", {
                   tokenId,
@@ -485,7 +512,27 @@ export default function PhysicalItemsNewPage() {
                   burnAmount,
                   isActive: true
                 });
-                // Would call createTokenConfigurationMutation here
+                
+                const newTokenConfig: InsertTokenConfiguration = {
+                  tokenId,
+                  physicalItemId: selectedItem.id,
+                  burnAmount,
+                  isActive: true
+                };
+                
+                createTokenConfigurationMutation.mutate(newTokenConfig, {
+                  onSuccess: (newConfig: TokenConfiguration) => {
+                    console.log("Token configuration created successfully:", newConfig);
+                  },
+                  onError: (error: Error) => {
+                    console.error("Error creating token configuration:", error);
+                    toast({
+                      title: "Warning",
+                      description: "Physical item was updated but token configuration failed. You can add it later.",
+                      variant: "destructive",
+                    });
+                  }
+                })
               }
             }
             
