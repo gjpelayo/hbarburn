@@ -20,7 +20,7 @@ import { PhysicalItem } from "@shared/schema";
 import { ItemVariationManager } from "@/components/ItemVariationManager";
 import { ArrowLeft, Box } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 
 export default function PhysicalItemVariationsPage() {
   const { toast } = useToast();

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Coins, ShoppingCart, Users } from "lucide-react";
 import type { PhysicalItem, Token, Redemption } from "@shared/schema";

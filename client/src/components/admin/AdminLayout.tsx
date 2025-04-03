@@ -23,7 +23,7 @@ interface AdminLayoutProps {
   title: string;
 }
 
-export function AdminLayout({ children, title }: AdminLayoutProps) {
+export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [location, navigate] = useLocation();
   const { user, logoutMutation } = useAdmin();
   const { disconnectWallet } = useWallet();

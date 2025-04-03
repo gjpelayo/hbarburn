@@ -14,7 +14,7 @@ import {
   TokenConfiguration,
   InsertTokenConfiguration
 } from "@shared/schema";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 import { cn } from "@/lib/utils";
 
 // UI Components

@@ -7,14 +7,15 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
 import { PhysicalItem, InsertPhysicalItem } from "@shared/schema";
-import { AdminLayout } from "@/components/admin/AdminLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
 import { useLocation } from "wouter";
 
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,8 @@ const physicalItemSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   description: z.string().optional(),
   imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
+  stock: z.number().min(0, "Stock must be a positive number").default(0),
+  hasVariations: z.boolean().default(false),
 });
 
 export default function PhysicalItemsBasicPage() {
@@ -52,12 +55,16 @@ export default function PhysicalItemsBasicPage() {
     name: string;
     description: string;
     imageUrl: string;
+    stock: number;
+    hasVariations: boolean;
   }>({
     resolver: zodResolver(physicalItemSchema),
     defaultValues: {
       name: "",
       description: "",
       imageUrl: "",
+      stock: 0,
+      hasVariations: false,
     },
   });
 
@@ -68,6 +75,8 @@ export default function PhysicalItemsBasicPage() {
       name: item.name,
       description: item.description || "",
       imageUrl: item.imageUrl || "",
+      stock: item.stock || 0,
+      hasVariations: item.hasVariations || false,
     });
     setIsEditOpen(true);
   };
@@ -143,6 +152,8 @@ export default function PhysicalItemsBasicPage() {
             name: "",
             description: "",
             imageUrl: "",
+            stock: 0,
+            hasVariations: false,
           });
           setIsCreateOpen(true);
         }} size="sm">
@@ -298,6 +309,54 @@ export default function PhysicalItemsBasicPage() {
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={form.control}
+                name="hasVariations"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Has Variations
+                      </FormLabel>
+                      <FormDescription>
+                        Check if this item has different variations (e.g., sizes, colors)
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {!form.watch("hasVariations") && (
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock Count</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          min={0}
+                          {...field} 
+                          value={field.value}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Number of items available for redemption (only used if no variations are present)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </Form>
           
@@ -414,6 +473,54 @@ export default function PhysicalItemsBasicPage() {
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={form.control}
+                name="hasVariations"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Has Variations
+                      </FormLabel>
+                      <FormDescription>
+                        Check if this item has different variations (e.g., sizes, colors)
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {!form.watch("hasVariations") && (
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock Count</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          min={0}
+                          {...field} 
+                          value={field.value}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Number of items available for redemption (only used if no variations are present)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </Form>
           
