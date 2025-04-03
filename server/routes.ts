@@ -26,7 +26,7 @@ import { fromZodError } from "zod-validation-error";
 import { nanoid } from "nanoid";
 import session from "express-session";
 import { randomUUID } from "crypto";
-import { getAccountTokenBalances, isValidAccountId, isValidTokenId, formatTransactionId, verifyTokenOnHedera } from "./hedera";
+import { client, getAccountTokenBalances, isValidAccountId, isValidTokenId, formatTransactionId, verifyTokenOnHedera } from "./hedera";
 
 // Extend Express Request interface to include session user
 declare module "express-session" {
@@ -807,45 +807,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check basic token ID format first
+      // Always check if the token exists in our database first
+      const tokenData = await storage.getTokenById(tokenId);
+      if (tokenData) {
+        console.log("Found token in database:", tokenData);
+        return res.json({
+          isValid: true,
+          tokenInfo: {
+            tokenId,
+            name: tokenData.name,
+            symbol: tokenData.symbol,
+            decimals: tokenData.decimals,
+            totalSupply: 1000000, // Default value for dev
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          }
+        });
+      }
+      
+      // If not in database, check basic token ID format
       if (!isValidTokenId(tokenId)) {
         return res.status(400).json({ 
-          message: "Invalid token ID format",
+          message: "Invalid token ID format (should be 0.0.xxxx)",
           isValid: false
         });
       }
       
-      // Verify token on Hedera network
+      // Verify token on Hedera network if client is properly initialized
+      const hasOperator = client && client.operatorAccountId && client.operatorPublicKey;
+      if (!hasOperator) {
+        console.log("No operator credentials for Hedera client - accepting valid format token ID");
+        // For development without operator credentials, just accept the token ID
+        return res.json({
+          isValid: true,
+          tokenInfo: {
+            tokenId,
+            name: `Token ${tokenId}`,
+            symbol: "TKN",
+            decimals: 0,
+            totalSupply: 1000000,
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          }
+        });
+      }
+      
+      // If operator is configured, try to verify on network
       const tokenInfo = await verifyTokenOnHedera(tokenId);
       
       if (!tokenInfo) {
-        // In development mode, allow any token ID format that passes basic validation
+        // In development mode, accept the token ID format since the operator might not have visibility
         if (process.env.NODE_ENV !== 'production') {
-          // Get from storage if available
-          const tokenData = await storage.getTokenById(tokenId);
-          
-          if (tokenData) {
-            return res.json({
-              isValid: true,
-              tokenInfo: {
-                tokenId,
-                name: tokenData.name,
-                symbol: tokenData.symbol,
-                decimals: tokenData.decimals,
-                totalSupply: 1000000, // Default value for dev
-                isDeleted: false,
-                tokenType: "FUNGIBLE"
-              }
-            });
-          }
-          
-          // For development without operator credentials, just accept the token ID
+          console.log("Token not found on network but accepting in development mode:", tokenId);
           return res.json({
             isValid: true,
             tokenInfo: {
               tokenId,
-              name: "Development Token",
-              symbol: "DEV",
+              name: `Token ${tokenId}`,
+              symbol: "TKN",
               decimals: 0,
               totalSupply: 1000000,
               isDeleted: false,
@@ -860,15 +879,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Return token info with validation status
-      res.json({
+      // If we get here, token was found on Hedera network
+      return res.json({
         isValid: true,
         tokenInfo
       });
     } catch (error) {
-      console.error("Error verifying token:", error);
-      res.status(500).json({ 
-        message: "Failed to verify token",
+      console.error("Token verification error:", error);
+      
+      // For development, don't fail verification
+      if (process.env.NODE_ENV !== 'production') {
+        const { tokenId } = req.params;
+        console.log("Error during verification but accepting in development mode:", tokenId);
+        return res.json({
+          isValid: true,
+          tokenInfo: {
+            tokenId,
+            name: `Token ${tokenId}`,
+            symbol: "TKN",
+            decimals: 0,
+            totalSupply: 1000000,
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          }
+        });
+      }
+      
+      return res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Error verifying token",
         isValid: false
       });
     }

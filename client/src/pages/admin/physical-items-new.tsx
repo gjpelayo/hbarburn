@@ -109,23 +109,48 @@ export default function PhysicalItemsNewPage() {
   // Verify token when tokenId changes
   useEffect(() => {
     async function verifyTokenId() {
-      if (!watchedTokenId || watchedTokenId.length < 5) {
+      // Clear verification state if token ID is empty or very short
+      if (!watchedTokenId || watchedTokenId.trim() === '') {
         setTokenVerification(null);
+        setIsVerifyingToken(false);
         return;
       }
       
-      // Only verify if it's a valid format
+      // If the user is selecting from available tokens, we can trust it's valid
+      const matchingToken = tokens.find(t => t.tokenId === watchedTokenId);
+      if (matchingToken) {
+        setTokenVerification({
+          isValid: true,
+          tokenInfo: {
+            tokenId: matchingToken.tokenId,
+            name: matchingToken.name,
+            symbol: matchingToken.symbol,
+            decimals: matchingToken.decimals || 0,
+            totalSupply: 1000000, // Default for development
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          }
+        });
+        setIsVerifyingToken(false);
+        return;
+      }
+      
+      // For manual entry, validate format first
       if (!isValidTokenId(watchedTokenId)) {
         setTokenVerification({
           isValid: false,
-          message: "Invalid token ID format"
+          message: "Invalid token ID format (should be 0.0.xxxx)"
         });
+        setIsVerifyingToken(false);
         return;
       }
       
+      // Perform network verification
       setIsVerifyingToken(true);
       try {
+        console.log("Verifying token ID:", watchedTokenId);
         const result = await verifyToken(watchedTokenId);
+        console.log("Verification result:", result);
         setTokenVerification(result);
       } catch (error) {
         console.error("Error verifying token:", error);
@@ -144,7 +169,7 @@ export default function PhysicalItemsNewPage() {
     }, 500);
     
     return () => clearTimeout(timeoutId);
-  }, [watchedTokenId]);
+  }, [watchedTokenId, tokens]);
 
   // Handler for opening edit dialog
   const handleEditClick = (item: PhysicalItem) => {

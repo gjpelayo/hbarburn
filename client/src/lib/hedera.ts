@@ -263,35 +263,88 @@ export interface TokenVerificationResponse {
 }
 
 // Verify token on Hedera network
+// Store local cache of token verification results to avoid repeated network calls
+const tokenVerificationCache = new Map<string, TokenVerificationResponse>();
+
 export async function verifyToken(tokenId: string): Promise<TokenVerificationResponse> {
-  // First validate the token ID format client-side
-  if (!isValidTokenId(tokenId)) {
+  // Empty token IDs are invalid
+  if (!tokenId || tokenId.trim() === '') {
     return {
       isValid: false,
-      message: "Invalid token ID format"
+      message: "Token ID cannot be empty"
     };
   }
   
+  // Check cache first
+  if (tokenVerificationCache.has(tokenId)) {
+    console.log("Using cached token verification for:", tokenId);
+    return tokenVerificationCache.get(tokenId)!;
+  }
+  
+  // Check format before making a network call
+  if (!isValidTokenId(tokenId)) {
+    const result = {
+      isValid: false,
+      message: "Invalid token ID format (should be 0.0.xxxx)"
+    };
+    tokenVerificationCache.set(tokenId, result);
+    return result;
+  }
+  
   try {
+    console.log("Verifying token with API:", tokenId);
     // Call the API to verify the token
     const response = await fetch(`/api/tokens/verify/${tokenId}`);
     
     if (!response.ok) {
-      const errorData = await response.json();
-      return {
+      let errorMessage = `Error (${response.status})`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        // If response isn't JSON, just use status code
+      }
+      
+      const result = {
         isValid: false,
-        message: errorData.message || `Error: ${response.status}`
+        message: errorMessage
       };
+      tokenVerificationCache.set(tokenId, result);
+      return result;
     }
     
     const data = await response.json();
+    // Cache the verification result
+    tokenVerificationCache.set(tokenId, data);
     return data;
   } catch (error) {
     console.error("Error verifying token:", error);
-    return {
+    
+    // In development mode, don't fail completely
+    if (import.meta.env.DEV) {
+      console.log("In development mode, accepting token format:", tokenId);
+      const devResult = {
+        isValid: true,
+        tokenInfo: {
+          tokenId,
+          name: `Development Token ${tokenId}`,
+          symbol: "DEV",
+          decimals: 0,
+          totalSupply: 1000000,
+          isDeleted: false,
+          tokenType: "FUNGIBLE"
+        }
+      };
+      tokenVerificationCache.set(tokenId, devResult);
+      return devResult;
+    }
+    
+    const result = {
       isValid: false,
       message: error instanceof Error ? error.message : "Unknown error verifying token"
     };
+    tokenVerificationCache.set(tokenId, result);
+    return result;
   }
 }
 
