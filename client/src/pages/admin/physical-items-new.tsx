@@ -187,6 +187,10 @@ export default function PhysicalItemsNewPage() {
             description: "The physical item has been created successfully.",
           });
           
+          // Close the dialog
+          setIsCreateOpen(false);
+          form.reset();
+          
           // Still refetch to make sure UI is consistent
           queryClient.refetchQueries({ 
             queryKey: ["/api/admin/physical-items"],
@@ -202,10 +206,15 @@ export default function PhysicalItemsNewPage() {
         description: "The physical item has been created successfully.",
       });
       
+      // Close the dialog
+      setIsCreateOpen(false);
+      form.reset();
+      
       // Always refetch to keep UI in sync
       queryClient.refetchQueries({ 
         queryKey: ["/api/admin/physical-items"],
-        exact: true
+        exact: true,
+        type: 'all'
       });
     }
   };
