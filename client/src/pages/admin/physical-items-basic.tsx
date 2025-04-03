@@ -86,7 +86,12 @@ export default function PhysicalItemsBasicPage() {
           description: "The physical item has been deleted successfully.",
         });
         setIsDeleteOpen(false);
+        // Force refetch to ensure UI is in sync with backend
         queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+        // Give the backend a moment to complete the deletion
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+        }, 300);
       },
       onError: (error) => {
         toast({
@@ -94,6 +99,9 @@ export default function PhysicalItemsBasicPage() {
           description: error.message,
           variant: "destructive",
         });
+        setIsDeleteOpen(false);
+        // Refetch even on error to ensure UI is in sync
+        queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
       }
     });
   };
@@ -275,7 +283,12 @@ export default function PhysicalItemsBasicPage() {
                     });
                     setIsCreateOpen(false);
                     form.reset();
+                    // Force refetch to ensure UI is in sync with backend
                     queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                    // Give the backend a moment to complete the creation
+                    setTimeout(() => {
+                      queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+                    }, 300);
                   },
                   onError: (error) => {
                     toast({
@@ -283,6 +296,8 @@ export default function PhysicalItemsBasicPage() {
                       description: error.message,
                       variant: "destructive",
                     });
+                    // Refetch even on error to ensure UI is in sync
+                    queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
                   }
                 });
               }}
@@ -387,7 +402,12 @@ export default function PhysicalItemsBasicPage() {
                         description: "The physical item has been updated successfully.",
                       });
                       setIsEditOpen(false);
+                      // Force refetch to ensure UI is in sync with backend
                       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                      // Give the backend a moment to complete the update
+                      setTimeout(() => {
+                        queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+                      }, 300);
                     },
                     onError: (error) => {
                       toast({
@@ -395,6 +415,9 @@ export default function PhysicalItemsBasicPage() {
                         description: error.message,
                         variant: "destructive",
                       });
+                      setIsEditOpen(false);
+                      // Refetch even on error to ensure UI is in sync
+                      queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
                     }
                   }
                 );
