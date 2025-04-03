@@ -243,7 +243,55 @@ export default function PhysicalItemsNewPage() {
     
     const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
     
-    // First create the physical item
+    // First check if token is valid before proceeding
+    if (tokenVerification && !tokenVerification.isValid) {
+      toast({
+        title: "Invalid token",
+        description: tokenVerification.message || "The token ID is not valid on the Hedera network.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If we're currently verifying a token, wait until it completes
+    if (isVerifyingToken) {
+      toast({
+        title: "Please wait",
+        description: "Token verification is in progress. Please wait for it to complete.",
+        variant: "default",
+      });
+      return;
+    }
+    
+    // If no token verification has been done yet, verify it now
+    if (!tokenVerification && tokenId && tokenId.length > 0) {
+      setIsVerifyingToken(true);
+      try {
+        const result = await verifyToken(tokenId);
+        setTokenVerification(result);
+        
+        if (!result.isValid) {
+          setIsVerifyingToken(false);
+          toast({
+            title: "Invalid token",
+            description: result.message || "The token ID is not valid on the Hedera network.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        setIsVerifyingToken(false);
+        toast({
+          title: "Token verification failed",
+          description: error instanceof Error ? error.message : "Unable to verify token on the Hedera network.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setIsVerifyingToken(false);
+    }
+    
+    // Create the physical item only if token is valid or verification succeeded
     try {
       createPhysicalItemMutation.mutate(
         { name, description, imageUrl } as InsertPhysicalItem, 
@@ -277,6 +325,7 @@ export default function PhysicalItemsNewPage() {
           });
           setIsCreateOpen(false);
           form.reset();
+          setTokenVerification(null); // Reset token verification for next creation
           
           // Clear cache and force a complete refresh
           queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
@@ -291,42 +340,20 @@ export default function PhysicalItemsNewPage() {
           }, 500);
         },
         onError: (error) => {
-          // Just log the error but don't show it to the user
-          // The item was actually created successfully
-          console.log("Create operation completed with warning:", error);
+          console.log("Create operation failed:", error);
           toast({
-            title: "Physical item created",
-            description: "The physical item has been created successfully.",
-          });
-          
-          // Close the dialog
-          setIsCreateOpen(false);
-          form.reset();
-          
-          // Still refetch to make sure UI is consistent
-          queryClient.refetchQueries({ 
-            queryKey: ["/api/admin/physical-items"],
-            exact: true,
-            type: 'all'
+            title: "Failed to create item",
+            description: "There was an error creating the physical item.",
+            variant: "destructive",
           });
         }
       });
     } catch (err) {
-      console.log("Create operation completed with warning:", err);
+      console.log("Create operation error:", err);
       toast({
-        title: "Physical item created",
-        description: "The physical item has been created successfully.",
-      });
-      
-      // Close the dialog
-      setIsCreateOpen(false);
-      form.reset();
-      
-      // Always refetch to keep UI in sync
-      queryClient.refetchQueries({ 
-        queryKey: ["/api/admin/physical-items"],
-        exact: true,
-        type: 'all'
+        title: "Failed to create item",
+        description: "There was an error creating the physical item.",
+        variant: "destructive",
       });
     }
   };
@@ -343,6 +370,54 @@ export default function PhysicalItemsNewPage() {
     
     const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
     const itemData = { name, description, imageUrl };
+    
+    // First check if token is valid before proceeding
+    if (tokenVerification && !tokenVerification.isValid) {
+      toast({
+        title: "Invalid token",
+        description: tokenVerification.message || "The token ID is not valid on the Hedera network.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If we're currently verifying a token, wait until it completes
+    if (isVerifyingToken) {
+      toast({
+        title: "Please wait",
+        description: "Token verification is in progress. Please wait for it to complete.",
+        variant: "default",
+      });
+      return;
+    }
+    
+    // If no token verification has been done yet, verify it now
+    if (!tokenVerification && tokenId && tokenId.length > 0) {
+      setIsVerifyingToken(true);
+      try {
+        const result = await verifyToken(tokenId);
+        setTokenVerification(result);
+        
+        if (!result.isValid) {
+          setIsVerifyingToken(false);
+          toast({
+            title: "Invalid token",
+            description: result.message || "The token ID is not valid on the Hedera network.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        setIsVerifyingToken(false);
+        toast({
+          title: "Token verification failed",
+          description: error instanceof Error ? error.message : "Unable to verify token on the Hedera network.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setIsVerifyingToken(false);
+    }
     
     try {
       updatePhysicalItemMutation.mutate(
@@ -379,6 +454,7 @@ export default function PhysicalItemsNewPage() {
               description: "The physical item has been updated successfully.",
             });
             setIsEditOpen(false);
+            setTokenVerification(null); // Reset token verification for next update
             
             // Clear cache and force a complete refresh
             queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
@@ -399,61 +475,22 @@ export default function PhysicalItemsNewPage() {
             }, 500);
           },
           onError: (error) => {
-            // Just log the error but don't show it to the user
-            // The item was actually updated successfully
-            console.log("Update operation completed with warning:", error);
+            console.log("Update operation failed:", error);
             toast({
-              title: "Physical item updated",
-              description: "The physical item has been updated successfully.",
+              title: "Failed to update item",
+              description: "There was an error updating the physical item.",
+              variant: "destructive",
             });
-            
-            setIsEditOpen(false);
-            // Clear cache and force a complete refresh
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-            
-            // Force a refetch with a delay
-            setTimeout(() => {
-              queryClient.refetchQueries({ 
-                queryKey: ["/api/admin/physical-items"],
-                exact: true,
-                type: 'all'
-              });
-              queryClient.refetchQueries({ 
-                queryKey: ["/api/admin/token-configurations"],
-                exact: true,
-                type: 'all'
-              });
-            }, 500);
           }
         }
       );
     } catch (err) {
-      console.log("Update operation completed with warning:", err);
-      
+      console.log("Update operation error:", err);
       toast({
-        title: "Physical item updated",
-        description: "The physical item has been updated successfully.",
+        title: "Failed to update item",
+        description: "There was an error updating the physical item.",
+        variant: "destructive",
       });
-      
-      setIsEditOpen(false);
-      // Ensure UI is updated even if there's an error
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-      
-      // Force a refetch with a delay
-      setTimeout(() => {
-        queryClient.refetchQueries({ 
-          queryKey: ["/api/admin/physical-items"],
-          exact: true,
-          type: 'all'
-        });
-        queryClient.refetchQueries({ 
-          queryKey: ["/api/admin/token-configurations"],
-          exact: true,
-          type: 'all'
-        });
-      }, 500);
     }
   };
 
@@ -575,7 +612,10 @@ export default function PhysicalItemsNewPage() {
       {/* Create Item Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={(open) => {
         setIsCreateOpen(open);
-        if (!open) form.reset();
+        if (!open) {
+          form.reset();
+          setTokenVerification(null);
+        }
       }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -770,7 +810,10 @@ export default function PhysicalItemsNewPage() {
       {/* Edit Item Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => {
         setIsEditOpen(open);
-        if (!open) setSelectedItem(null);
+        if (!open) {
+          setSelectedItem(null);
+          setTokenVerification(null);
+        }
       }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
