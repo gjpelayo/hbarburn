@@ -400,12 +400,7 @@ export default function PhysicalItemsNewPage() {
   };
 
   return (
-    <AdminLayout title="Physical Items">
-      <div className="mb-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded-md border border-yellow-200">
-        <strong>Physical Item Management:</strong> This is a simplified version that allows basic management of physical items. 
-        Token configuration settings can be managed separately on the Token Configurations page.
-      </div>
-      
+    <AdminLayout title="Physical Items">      
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Manage Physical Items</h2>
         <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
