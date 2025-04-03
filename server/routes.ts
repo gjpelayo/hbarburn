@@ -23,7 +23,7 @@ import { fromZodError } from "zod-validation-error";
 import { nanoid } from "nanoid";
 import session from "express-session";
 import { randomUUID } from "crypto";
-import { getAccountTokenBalances, isValidAccountId, formatTransactionId } from "./hedera";
+import { getAccountTokenBalances, isValidAccountId, isValidTokenId, formatTransactionId, verifyTokenOnHedera } from "./hedera";
 
 // Extend Express Request interface to include session user
 declare module "express-session" {
@@ -387,7 +387,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/tokens", isAdmin, async (req, res) => {
     try {
       const validatedData = insertTokenSchema.parse(req.body);
-      const token = await storage.createToken(validatedData);
+      
+      // Verify token exists on Hedera network
+      const tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+      
+      if (!tokenInfo) {
+        return res.status(400).json({ 
+          message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+        });
+      }
+      
+      // If token info was found, use it to populate the token data
+      const tokenData = {
+        ...validatedData,
+        name: validatedData.name || tokenInfo.name,
+        symbol: validatedData.symbol || tokenInfo.symbol,
+        decimals: validatedData.decimals || tokenInfo.decimals,
+      };
+      
+      const token = await storage.createToken(tokenData);
       res.status(201).json(token);
     } catch (error) {
       console.error("Error creating token:", error);
@@ -409,6 +427,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { tokenId } = req.params;
       const validatedData = updateTokenSchema.parse(req.body);
+      
+      // If tokenId is being updated, verify it exists on Hedera
+      if (validatedData.tokenId && validatedData.tokenId !== tokenId) {
+        const tokenInfo = await verifyTokenOnHedera(validatedData.tokenId);
+        
+        if (!tokenInfo) {
+          return res.status(400).json({ 
+            message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+          });
+        }
+        
+        // If token info was found, use it to populate the token data
+        if (!validatedData.name) validatedData.name = tokenInfo.name;
+        if (!validatedData.symbol) validatedData.symbol = tokenInfo.symbol;
+        if (!validatedData.decimals) validatedData.decimals = tokenInfo.decimals;
+      }
+      
       const updated = await storage.updateToken(tokenId, validatedData);
       
       if (!updated) {
@@ -493,6 +528,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/token-configurations", isAdmin, async (req, res) => {
     try {
       const validatedData = insertTokenConfigurationSchema.parse(req.body);
+      
+      // Verify token exists on Hedera network
+      if (!await verifyTokenOnHedera(validatedData.tokenId)) {
+        return res.status(400).json({ 
+          message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+        });
+      }
+      
       const config = await storage.createTokenConfiguration(validatedData);
       res.status(201).json(config);
     } catch (error) {
@@ -519,6 +562,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const validatedData = updateTokenConfigurationSchema.parse(req.body);
+      
+      // If tokenId is being updated, verify it exists on Hedera
+      if (validatedData.tokenId) {
+        // Verify token exists on Hedera network
+        if (!await verifyTokenOnHedera(validatedData.tokenId)) {
+          return res.status(400).json({ 
+            message: "Invalid token ID. The token doesn't exist on the Hedera network or is not a valid HTS token."
+          });
+        }
+      }
+      
       const updated = await storage.updateTokenConfiguration(id, validatedData);
       
       if (!updated) {

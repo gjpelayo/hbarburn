@@ -53,13 +53,59 @@ export function isValidAccountId(accountId: string): boolean {
   }
 }
 
-// Helper function to validate a token ID string
+// Helper function to validate a token ID string format
 export function isValidTokenId(tokenId: string): boolean {
   try {
     TokenId.fromString(tokenId);
     return true;
   } catch (error) {
     return false;
+  }
+}
+
+// Interface for token information
+export interface TokenInfo {
+  tokenId: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  totalSupply: number;
+  isDeleted: boolean;
+  tokenType: string;
+}
+
+// Verify if a token exists on the Hedera network and is a valid HTS token
+export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | null> {
+  if (!isValidTokenId(tokenId)) {
+    return null;
+  }
+  
+  try {
+    const token = TokenId.fromString(tokenId);
+    
+    // Query token info from Hedera
+    const query = new TokenInfoQuery()
+      .setTokenId(token);
+    
+    const tokenInfo = await query.execute(client);
+    
+    if (!tokenInfo) {
+      return null;
+    }
+    
+    // Return formatted token info
+    return {
+      tokenId: token.toString(),
+      name: tokenInfo.name.toString(),
+      symbol: tokenInfo.symbol.toString(),
+      decimals: tokenInfo.decimals,
+      totalSupply: Number(tokenInfo.totalSupply.toString()),
+      isDeleted: tokenInfo.isDeleted,
+      tokenType: tokenInfo.tokenType ? tokenInfo.tokenType.toString() : "FUNGIBLE"
+    };
+  } catch (error) {
+    console.error("Error verifying token on Hedera:", error);
+    return null; // Token doesn't exist or other error
   }
 }
 
