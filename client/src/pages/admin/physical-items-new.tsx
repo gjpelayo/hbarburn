@@ -82,40 +82,64 @@ export default function PhysicalItemsNewPage() {
     try {
       deletePhysicalItemMutation.mutate(selectedItem.id, {
         onSuccess: () => {
+          console.log("Item deleted successfully:", selectedItem.id);
           toast({
             title: "Item deleted",
             description: "The physical item has been deleted successfully.",
           });
           setIsDeleteOpen(false);
-          // Force refetch to ensure UI is in sync with backend
+          
+          // Clear cache and force a complete refresh
           queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-          // Give the backend a moment to complete the deletion
+          
+          // Force a refetch with a delay
           setTimeout(() => {
-            queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-          }, 300);
+            queryClient.refetchQueries({ 
+              queryKey: ["/api/admin/physical-items"],
+              exact: true,
+              type: 'all'
+            });
+          }, 500);
         },
-        onError: () => {
+        onError: (error) => {
+          console.error("Delete error:", error);
           toast({
             title: "Item deleted",
             description: "The physical item has been removed successfully.",
           });
           
           setIsDeleteOpen(false);
-          // Refetch even on error to ensure UI is in sync with backend
+          // Clear cache and force a complete refresh
           queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+          
+          // Force a refetch with a delay
           setTimeout(() => {
-            queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-          }, 300);
+            queryClient.refetchQueries({ 
+              queryKey: ["/api/admin/physical-items"],
+              exact: true,
+              type: 'all'
+            });
+          }, 500);
         }
       });
     } catch (err) {
+      console.error("Delete error:", err);
       toast({
         title: "Item deleted",
         description: "The physical item has been removed successfully.",
       });
       setIsDeleteOpen(false);
+      
       // Ensure UI is updated even if there's an error
-      queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+      // Force a refetch with a delay
+      setTimeout(() => {
+        queryClient.refetchQueries({ 
+          queryKey: ["/api/admin/physical-items"],
+          exact: true,
+          type: 'all'
+        });
+      }, 500);
     }
   };
   
@@ -131,28 +155,39 @@ export default function PhysicalItemsNewPage() {
     
     try {
       createPhysicalItemMutation.mutate(itemData as InsertPhysicalItem, {
-        onSuccess: () => {
+        onSuccess: (newItem) => {
+          console.log("Item created successfully:", newItem);
           toast({
             title: "Physical item created",
             description: "The physical item has been created successfully.",
           });
           setIsCreateOpen(false);
           form.reset();
-          // Force refetch to ensure UI is in sync with backend
+          
+          // Clear cache and force a complete refresh
           queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-          // Give the backend a moment to complete the creation
+          
+          // Force a refetch with a delay
           setTimeout(() => {
-            queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-          }, 300);
+            queryClient.refetchQueries({ 
+              queryKey: ["/api/admin/physical-items"],
+              exact: true,
+              type: 'all'
+            });
+          }, 500);
         },
         onError: (error) => {
+          console.error("Create error:", error);
           toast({
             title: "Error creating physical item",
             description: error.message,
             variant: "destructive",
           });
-          // Refetch even on error to ensure UI is in sync
-          queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+          // Still refetch to make sure UI is consistent
+          queryClient.refetchQueries({ 
+            queryKey: ["/api/admin/physical-items"],
+            exact: true
+          });
         }
       });
     } catch (err) {
@@ -162,7 +197,12 @@ export default function PhysicalItemsNewPage() {
         description: "There was an error creating the physical item.",
         variant: "destructive",
       });
-      queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+      
+      // Always refetch to keep UI in sync
+      queryClient.refetchQueries({ 
+        queryKey: ["/api/admin/physical-items"],
+        exact: true
+      });
     }
   };
   
@@ -182,20 +222,28 @@ export default function PhysicalItemsNewPage() {
       updatePhysicalItemMutation.mutate(
         { id: selectedItem.id, data: itemData }, 
         {
-          onSuccess: () => {
+          onSuccess: (updatedItem) => {
+            console.log("Item updated successfully:", updatedItem);
             toast({
               title: "Physical item updated",
               description: "The physical item has been updated successfully.",
             });
             setIsEditOpen(false);
-            // Force refetch to ensure UI is in sync with backend
+            
+            // Clear cache and force a complete refresh
             queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-            // Give the backend a moment to complete the update
+            
+            // Force a refetch with a delay
             setTimeout(() => {
-              queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-            }, 300);
+              queryClient.refetchQueries({ 
+                queryKey: ["/api/admin/physical-items"],
+                exact: true,
+                type: 'all'
+              });
+            }, 500);
           },
-          onError: () => {
+          onError: (error) => {
+            console.error("Update error:", error);
             // Show user-friendly success message even if there's an error
             toast({
               title: "Physical item updated",
@@ -203,11 +251,17 @@ export default function PhysicalItemsNewPage() {
             });
             
             setIsEditOpen(false);
-            // Refetch even on error to ensure UI is in sync
+            // Clear cache and force a complete refresh
             queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+            
+            // Force a refetch with a delay
             setTimeout(() => {
-              queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-            }, 300);
+              queryClient.refetchQueries({ 
+                queryKey: ["/api/admin/physical-items"],
+                exact: true,
+                type: 'all'
+              });
+            }, 500);
           }
         }
       );
@@ -221,7 +275,16 @@ export default function PhysicalItemsNewPage() {
       
       setIsEditOpen(false);
       // Ensure UI is updated even if there's an error
-      queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+      
+      // Force a refetch with a delay
+      setTimeout(() => {
+        queryClient.refetchQueries({ 
+          queryKey: ["/api/admin/physical-items"],
+          exact: true,
+          type: 'all'
+        });
+      }, 500);
     }
   };
 
