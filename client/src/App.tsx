@@ -8,7 +8,7 @@ import { AdminProvider } from "./hooks/use-admin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import Shop from "@/pages/shop";
+import Shop from "@/pages/shop-fixed";
 import OrderTrackingPage from "@/pages/order-tracking";
 
 // Admin pages
