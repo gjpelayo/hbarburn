@@ -338,28 +338,42 @@ export default function PhysicalItemsNewPage() {
           // Now create the token configuration that links the token to the physical item
           // Only create token configuration if a token ID was provided
           if (tokenId && tokenId.trim() !== "") {
-            const tokenConfigData: InsertTokenConfiguration = {
-              tokenId,
-              physicalItemId: newItem.id,
-              burnAmount,
-              isActive: true
-            };
-            
-            // Create the token configuration through the API
-            createTokenConfigurationMutation.mutate(tokenConfigData, {
-              onSuccess: (newConfig: TokenConfiguration) => {
-                console.log("Token configuration created successfully:", newConfig);
-                queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-              },
-              onError: (error: Error) => {
-                console.error("Error creating token configuration:", error);
-                toast({
-                  title: "Warning",
-                  description: "Physical item was created but token configuration failed. You can add it later.",
-                  variant: "destructive",
+            try {
+              // Create a delay to ensure the physical item has been fully created
+              setTimeout(() => {
+                const tokenConfigData: InsertTokenConfiguration = {
+                  tokenId,
+                  physicalItemId: newItem.id,
+                  burnAmount: burnAmount || 1, // Default to 1 if not provided
+                  isActive: true
+                };
+                
+                console.log("Creating token configuration:", tokenConfigData);
+                
+                // Create the token configuration through the API
+                createTokenConfigurationMutation.mutate(tokenConfigData, {
+                  onSuccess: (newConfig: TokenConfiguration) => {
+                    console.log("Token configuration created successfully:", newConfig);
+                    queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
+                    
+                    toast({
+                      title: "Success",
+                      description: "Physical item and token configuration created successfully.",
+                    });
+                  },
+                  onError: (error: Error) => {
+                    console.error("Error creating token configuration:", error);
+                    toast({
+                      title: "Warning",
+                      description: "Physical item was created but token configuration failed. You can add it later.",
+                      variant: "destructive",
+                    });
+                  }
                 });
-              }
-            });
+              }, 500); // Half-second delay to ensure database has updated
+            } catch (err) {
+              console.error("Error in token configuration creation:", err);
+            }
           }
           
           toast({
@@ -511,26 +525,33 @@ export default function PhysicalItemsNewPage() {
                   isActive: true
                 });
                 
-                const newTokenConfig: InsertTokenConfiguration = {
-                  tokenId,
-                  physicalItemId: selectedItem.id,
-                  burnAmount,
-                  isActive: true
-                };
-                
-                createTokenConfigurationMutation.mutate(newTokenConfig, {
-                  onSuccess: (newConfig: TokenConfiguration) => {
-                    console.log("Token configuration created successfully:", newConfig);
-                  },
-                  onError: (error: Error) => {
-                    console.error("Error creating token configuration:", error);
-                    toast({
-                      title: "Warning",
-                      description: "Physical item was updated but token configuration failed. You can add it later.",
-                      variant: "destructive",
-                    });
-                  }
-                })
+                // Add a delay to ensure the physical item update is completed
+                setTimeout(() => {
+                  const newTokenConfig: InsertTokenConfiguration = {
+                    tokenId,
+                    physicalItemId: selectedItem.id,
+                    burnAmount: burnAmount || 1, // Default to 1 if not provided
+                    isActive: true
+                  };
+                  
+                  createTokenConfigurationMutation.mutate(newTokenConfig, {
+                    onSuccess: (newConfig: TokenConfiguration) => {
+                      console.log("Token configuration created successfully:", newConfig);
+                      toast({
+                        title: "Success",
+                        description: "Physical item and token configuration updated successfully.",
+                      });
+                    },
+                    onError: (error: Error) => {
+                      console.error("Error creating token configuration:", error);
+                      toast({
+                        title: "Warning",
+                        description: "Physical item was updated but token configuration failed. You can add it later.",
+                        variant: "destructive",
+                      });
+                    }
+                  });
+                }, 500);
               }
             }
             
