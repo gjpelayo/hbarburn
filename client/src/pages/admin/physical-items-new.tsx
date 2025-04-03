@@ -23,13 +23,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 // Enhanced schema for physical item form with token configuration
 const physicalItemSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   description: z.string().optional(),
-  imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)).optional(),
+  imageUrl: z.string()
+    .refine(val => !val || val.startsWith('data:image/') || val.startsWith('http'), 
+      "Please provide a valid image URL or upload an image")
+    .optional(),
   tokenId: z.string().min(1, "Please select a token"),
   burnAmount: z.number().min(1, "Burn amount must be at least 1").default(1),
 });
@@ -565,11 +569,10 @@ export default function PhysicalItemsNewPage() {
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Cover Image</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="https://example.com/image.jpg" 
-                        {...field} 
+                      <FileUpload 
+                        onChange={field.onChange}
                         value={field.value || ""}
                       />
                     </FormControl>
@@ -710,9 +713,12 @@ export default function PhysicalItemsNewPage() {
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Cover Image</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value || ""} />
+                      <FileUpload 
+                        onChange={field.onChange}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
