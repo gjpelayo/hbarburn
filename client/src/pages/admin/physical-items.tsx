@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -303,6 +303,9 @@ export default function PhysicalItemsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Physical Item</DialogTitle>
+            <DialogDescription>
+              Create a physical item that users can redeem with tokens.
+            </DialogDescription>
           </DialogHeader>
           
           {/* Use two separate forms but style them as a single form */}
@@ -500,6 +503,9 @@ export default function PhysicalItemsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Physical Item</DialogTitle>
+            <DialogDescription>
+              Update details and token requirements for this physical item.
+            </DialogDescription>
           </DialogHeader>
           
           {/* Use two separate forms but style them as a single form */}
@@ -736,6 +742,9 @@ export default function PhysicalItemsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Physical Item</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the item from your inventory.
+            </DialogDescription>
           </DialogHeader>
           <p className="py-4">
             Are you sure you want to delete <strong>{selectedItem?.name}</strong>? This action cannot be undone.
