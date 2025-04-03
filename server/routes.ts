@@ -312,8 +312,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new physical item
   app.post("/api/admin/physical-items", isAdmin, async (req, res) => {
     try {
-      const validatedData = insertPhysicalItemSchema.parse(req.body);
+      // Extract main physical item data from request body
+      const { tokenDetails, ...physicalItemData } = req.body;
+      
+      // Validate the physical item data
+      const validatedData = insertPhysicalItemSchema.parse(physicalItemData);
+      
+      // Create the physical item
       const item = await storage.createPhysicalItem(validatedData);
+      
+      // If token details are provided, create a token configuration as well
+      if (tokenDetails && tokenDetails.tokenId) {
+        try {
+          console.log("Creating token configuration for physical item:", {
+            physicalItemId: item.id,
+            tokenId: tokenDetails.tokenId,
+            burnAmount: tokenDetails.burnAmount || 1
+          });
+          
+          // Check if token exists in our database first
+          let token = await storage.getTokenById(tokenDetails.tokenId);
+          let tokenInfo = null;
+          
+          // If token doesn't exist, verify it on Hedera and create it
+          if (!token) {
+            try {
+              // Verify token exists on Hedera network
+              tokenInfo = await verifyTokenOnHedera(tokenDetails.tokenId);
+              
+              if (!tokenInfo && process.env.NODE_ENV === 'production') {
+                console.warn("Token doesn't exist on Hedera network:", tokenDetails.tokenId);
+              }
+            } catch (hederaError) {
+              console.error("Error verifying token on Hedera:", hederaError);
+              
+              // In development, create a placeholder token
+              if (process.env.NODE_ENV !== 'production') {
+                tokenInfo = {
+                  tokenId: tokenDetails.tokenId,
+                  name: `Token ${tokenDetails.tokenId}`,
+                  symbol: "TKN",
+                  decimals: 0,
+                  totalSupply: 1000000,
+                  isDeleted: false,
+                  tokenType: "FUNGIBLE"
+                };
+              }
+            }
+            
+            // If token doesn't exist in our database but we have token info, create it
+            if (tokenInfo) {
+              try {
+                token = await storage.createToken({
+                  tokenId: tokenInfo.tokenId,
+                  name: tokenInfo.name,
+                  symbol: tokenInfo.symbol,
+                  decimals: tokenInfo.decimals,
+                  redemptionItem: "Created for token configuration"
+                });
+                console.log("Created new token in database:", token);
+              } catch (tokenCreateError) {
+                console.error("Error creating token record:", tokenCreateError);
+              }
+            }
+          }
+          
+          // Create the token configuration if we have a valid token
+          if (token) {
+            const tokenConfig = await storage.createTokenConfiguration({
+              tokenId: tokenDetails.tokenId,
+              physicalItemId: item.id,
+              burnAmount: tokenDetails.burnAmount || 1,
+              isActive: true
+            });
+            
+            // Return both the physical item and the token configuration
+            return res.status(201).json({
+              ...item,
+              tokenConfiguration: tokenConfig
+            });
+          }
+        } catch (tokenConfigError) {
+          console.error("Error creating token configuration:", tokenConfigError);
+          // Still return the physical item even if token config creation fails
+        }
+      }
+      
+      // Return just the physical item if no token config was created
       res.status(201).json(item);
     } catch (error) {
       console.error("Error creating physical item:", error);

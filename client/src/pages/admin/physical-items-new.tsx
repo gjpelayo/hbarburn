@@ -327,73 +327,46 @@ export default function PhysicalItemsNewPage() {
       setIsVerifyingToken(false);
     }
     
-    // Create the physical item only if token is valid or verification succeeded
+    // Create the physical item with combined data - include token information directly
+    const createData: InsertPhysicalItem & { tokenDetails?: { tokenId: string, burnAmount: number } } = {
+      name, 
+      description, 
+      imageUrl, 
+      stock, 
+      hasVariations
+    };
+    
+    // If token ID is provided, add it to the creation data
+    if (tokenId && tokenId.trim() !== "") {
+      createData.tokenDetails = {
+        tokenId: tokenId.trim(),
+        burnAmount: burnAmount || 1
+      };
+    }
+    
     try {
-      createPhysicalItemMutation.mutate(
-        { name, description, imageUrl, stock, hasVariations } as InsertPhysicalItem, 
-        {
+      // Simple single-step creation
+      createPhysicalItemMutation.mutate(createData as any, {
         onSuccess: (newItem) => {
           console.log("Item created successfully:", newItem);
           
-          // Now create the token configuration that links the token to the physical item
-          // Only create token configuration if a token ID was provided
-          if (tokenId && tokenId.trim() !== "") {
-            try {
-              // Create a delay to ensure the physical item has been fully created
-              setTimeout(() => {
-                const tokenConfigData: InsertTokenConfiguration = {
-                  tokenId,
-                  physicalItemId: newItem.id,
-                  burnAmount: burnAmount || 1, // Default to 1 if not provided
-                  isActive: true
-                };
-                
-                console.log("Creating token configuration:", tokenConfigData);
-                
-                // Create the token configuration through the API
-                createTokenConfigurationMutation.mutate(tokenConfigData, {
-                  onSuccess: (newConfig: TokenConfiguration) => {
-                    console.log("Token configuration created successfully:", newConfig);
-                    queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-                    
-                    toast({
-                      title: "Success",
-                      description: "Physical item and token configuration created successfully.",
-                    });
-                  },
-                  onError: (error: Error) => {
-                    console.error("Error creating token configuration:", error);
-                    toast({
-                      title: "Warning",
-                      description: "Physical item was created but token configuration failed. You can add it later.",
-                      variant: "destructive",
-                    });
-                  }
-                });
-              }, 500); // Half-second delay to ensure database has updated
-            } catch (err) {
-              console.error("Error in token configuration creation:", err);
-            }
-          }
-          
           toast({
-            title: "Physical item created",
-            description: "The physical item has been created successfully.",
+            title: "Success!",
+            description: "Physical item created successfully.",
           });
+          
           setIsCreateOpen(false);
           form.reset();
-          setTokenVerification(null); // Reset token verification for next creation
+          setTokenVerification(null);
           
-          // Clear cache and force a complete refresh
+          // Refresh data
           queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
           
-          // Force a refetch with a delay
+          // Add delay before refetching to ensure server has processed everything
           setTimeout(() => {
-            queryClient.refetchQueries({ 
-              queryKey: ["/api/admin/physical-items"],
-              exact: true,
-              type: 'all'
-            });
+            queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
+            queryClient.refetchQueries({ queryKey: ["/api/admin/token-configurations"] });
           }, 500);
         },
         onError: (error) => {
