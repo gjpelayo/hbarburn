@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Shop from "@/pages/shop-fixed";
 import OrderTrackingPage from "@/pages/order-tracking";
+import AuthPage from "@/pages/auth-page";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -32,6 +33,7 @@ function Router() {
     <Switch>
       {/* Public Routes */}
       <Route path="/" component={Home} />
+      <Route path="/auth" component={AuthPage} />
       <Route path="/shop/:shopId" component={Shop} />
       <Route path="/track" component={OrderTrackingPage} />
       <Route path="/track/:orderId" component={OrderTrackingPage} />

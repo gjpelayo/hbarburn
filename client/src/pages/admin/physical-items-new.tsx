@@ -349,8 +349,6 @@ export default function PhysicalItemsNewPage() {
             createTokenConfigurationMutation.mutate(tokenConfigData, {
               onSuccess: (newConfig: TokenConfiguration) => {
                 console.log("Token configuration created successfully:", newConfig);
-                
-                // Invalidate relevant queries to ensure the UI shows the most up-to-date data
                 queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
               },
               onError: (error: Error) => {
