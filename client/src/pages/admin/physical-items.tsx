@@ -181,6 +181,10 @@ export default function PhysicalItemsPage() {
   
   return (
     <AdminLayout title="Physical Items">
+      <div className="mb-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded-md border border-yellow-200">
+        <strong>Development Mode Notice:</strong> Token configuration is currently displayed for UI completeness but operations related to token configurations will be fully functional when deployed to a production environment with Hedera access credentials. For now, you can create and update physical items without token configurations.
+      </div>
+      
       <div className="mb-6 max-w-[100vw] overflow-hidden px-2">
         <h2 className="text-lg font-semibold mb-1.5">Manage Physical Items</h2>
         <p className="text-sm text-muted-foreground mb-3 max-w-2xl">
@@ -419,29 +423,15 @@ export default function PhysicalItemsPage() {
             </Button>
             <Button 
               onClick={async () => {
-                // Validate both forms
+                // Only validate the physical item form
                 const isItemValid = await physicalItemForm.trigger();
-                const isTokenValid = await tokenConfigForm.trigger();
                 
-                if (!isItemValid || !isTokenValid) {
+                if (!isItemValid) {
                   return;
                 }
                 
-                // Get form values
+                // Get form values for physical item only
                 const itemData = physicalItemForm.getValues();
-                const tokenData = tokenConfigForm.getValues();
-                
-                // Find selected token details
-                const selectedToken = tokens.find(t => t.tokenId === tokenData.tokenId);
-                
-                if (!selectedToken) {
-                  toast({
-                    title: "Error",
-                    description: "Please select a valid token",
-                    variant: "destructive",
-                  });
-                  return;
-                }
                 
                 // Create physical item only
                 createPhysicalItemMutation.mutate(itemData as InsertPhysicalItem, {
@@ -455,10 +445,6 @@ export default function PhysicalItemsPage() {
                     tokenConfigForm.reset();
                     // Refresh data
                     queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-                                        
-                    // Skip token configuration creation for now since we're in development
-                    // When the app is deployed to production with real Hedera credentials,
-                    // the token configuration creation will work properly
                   },
                   onError: (error) => {
                     toast({
@@ -469,9 +455,9 @@ export default function PhysicalItemsPage() {
                   }
                 });
               }}
-              disabled={createPhysicalItemMutation.isPending || createTokenConfigurationMutation.isPending}
+              disabled={createPhysicalItemMutation.isPending}
             >
-              {createPhysicalItemMutation.isPending || createTokenConfigurationMutation.isPending ? (
+              {createPhysicalItemMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating...
@@ -606,32 +592,15 @@ export default function PhysicalItemsPage() {
               onClick={async () => {
                 if (!selectedItem) return;
                 
-                // Validate both forms
+                // Only validate the physical item form for now
                 const isItemValid = await editForm.trigger();
-                const isTokenValid = await tokenConfigForm.trigger();
                 
-                if (!isItemValid || !isTokenValid) {
+                if (!isItemValid) {
                   return;
                 }
                 
-                // Get form values
+                // Get form values for physical item only
                 const itemData = editForm.getValues();
-                const tokenData = tokenConfigForm.getValues();
-                
-                // Find selected token details
-                const selectedToken = tokens.find(t => t.tokenId === tokenData.tokenId);
-                
-                if (!selectedToken) {
-                  toast({
-                    title: "Error",
-                    description: "Please select a valid token",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                
-                // Get existing token configuration
-                const existingConfig = getTokenConfigForItem(selectedItem.id);
                 
                 // Update physical item only
                 updatePhysicalItemMutation.mutate(
@@ -645,10 +614,6 @@ export default function PhysicalItemsPage() {
                       setIsEditOpen(false);
                       // Refresh data
                       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-                      
-                      // Skip token configuration updates for now since we're in development
-                      // When the app is deployed to production with real Hedera credentials,
-                      // the following token configuration updates will work properly
                     },
                     onError: (error) => {
                       toast({
@@ -660,13 +625,9 @@ export default function PhysicalItemsPage() {
                   }
                 );
               }}
-              disabled={updatePhysicalItemMutation.isPending || 
-                       createTokenConfigurationMutation.isPending || 
-                       updateTokenConfigurationMutation?.isPending}
+              disabled={updatePhysicalItemMutation.isPending}
             >
-              {updatePhysicalItemMutation.isPending || 
-               createTokenConfigurationMutation.isPending || 
-               updateTokenConfigurationMutation?.isPending ? (
+              {updatePhysicalItemMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Updating...
