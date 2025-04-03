@@ -10,6 +10,7 @@ import {
   PhysicalItem, 
   InsertPhysicalItem,
   Token,
+  TokenConfiguration,
   InsertTokenConfiguration
 } from "@shared/schema";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -56,6 +57,11 @@ export default function PhysicalItemsNewPage() {
   const { data: tokens = [], isLoading: isLoadingTokens } = useQuery<Token[]>({
     queryKey: ["/api/tokens"],
   });
+  
+  // Fetch token configurations to display token requirements for each item
+  const { data: tokenConfigurations = [] } = useQuery<TokenConfiguration[]>({
+    queryKey: ["/api/admin/token-configurations"],
+  });
 
   // Form for creating/editing physical items
   const form = useForm<{
@@ -78,11 +84,18 @@ export default function PhysicalItemsNewPage() {
   // Handler for opening edit dialog
   const handleEditClick = (item: PhysicalItem) => {
     setSelectedItem(item);
+    
+    // Find token configuration for this item
+    const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === item.id);
+    
     form.reset({
       name: item.name,
       description: item.description || "",
       imageUrl: item.imageUrl || "",
+      tokenId: tokenConfig?.tokenId || "",
+      burnAmount: tokenConfig?.burnAmount || 1
     });
+    
     setIsEditOpen(true);
   };
 
@@ -188,9 +201,17 @@ export default function PhysicalItemsNewPage() {
             isActive: true
           };
           
-          // Here we would normally call a mutation to create the token configuration
+          // If we had a mutation for creating token configurations, we would call it here
           // For now we'll just log it
           console.log("Creating token configuration:", tokenConfigData);
+          
+          // This token configuration would be created via API call
+          // For example:
+          // createTokenConfigurationMutation.mutate(tokenConfigData);
+          
+          // We're also invalidating the token configurations cache to ensure the UI shows
+          // the most up-to-date data, even though the actual creation is being simulated
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
           
           toast({
             title: "Physical item created",
@@ -262,7 +283,8 @@ export default function PhysicalItemsNewPage() {
       return;
     }
     
-    const itemData = form.getValues();
+    const { name, description, imageUrl, tokenId, burnAmount } = form.getValues();
+    const itemData = { name, description, imageUrl };
     
     try {
       updatePhysicalItemMutation.mutate(
@@ -270,6 +292,30 @@ export default function PhysicalItemsNewPage() {
         {
           onSuccess: (updatedItem) => {
             console.log("Item updated successfully:", updatedItem);
+            
+            // Also update the token configuration
+            const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === selectedItem.id);
+            
+            // Create or update token configuration
+            if (tokenConfig) {
+              console.log("Updating token configuration:", {
+                id: tokenConfig.id,
+                data: {
+                  tokenId,
+                  burnAmount
+                }
+              });
+              // Would call updateTokenConfigurationMutation here
+            } else {
+              console.log("Creating new token configuration:", {
+                tokenId,
+                physicalItemId: selectedItem.id,
+                burnAmount,
+                isActive: true
+              });
+              // Would call createTokenConfigurationMutation here
+            }
+            
             toast({
               title: "Physical item updated",
               description: "The physical item has been updated successfully.",
@@ -278,11 +324,17 @@ export default function PhysicalItemsNewPage() {
             
             // Clear cache and force a complete refresh
             queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
             
             // Force a refetch with a delay
             setTimeout(() => {
               queryClient.refetchQueries({ 
                 queryKey: ["/api/admin/physical-items"],
+                exact: true,
+                type: 'all'
+              });
+              queryClient.refetchQueries({ 
+                queryKey: ["/api/admin/token-configurations"],
                 exact: true,
                 type: 'all'
               });
@@ -300,11 +352,17 @@ export default function PhysicalItemsNewPage() {
             setIsEditOpen(false);
             // Clear cache and force a complete refresh
             queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
             
             // Force a refetch with a delay
             setTimeout(() => {
               queryClient.refetchQueries({ 
                 queryKey: ["/api/admin/physical-items"],
+                exact: true,
+                type: 'all'
+              });
+              queryClient.refetchQueries({ 
+                queryKey: ["/api/admin/token-configurations"],
                 exact: true,
                 type: 'all'
               });
@@ -323,11 +381,17 @@ export default function PhysicalItemsNewPage() {
       setIsEditOpen(false);
       // Ensure UI is updated even if there's an error
       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
       
       // Force a refetch with a delay
       setTimeout(() => {
         queryClient.refetchQueries({ 
           queryKey: ["/api/admin/physical-items"],
+          exact: true,
+          type: 'all'
+        });
+        queryClient.refetchQueries({ 
+          queryKey: ["/api/admin/token-configurations"],
           exact: true,
           type: 'all'
         });
@@ -394,12 +458,41 @@ export default function PhysicalItemsNewPage() {
                 </div>
               )}
               <CardContent className="p-6">
-                <div className="mb-4">
+                <div className="mb-2">
                   <h3 className="font-medium">{item.name}</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   {item.description || "No description provided."}
                 </p>
+                
+                {/* Token requirement information */}
+                {(() => {
+                  const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === item.id);
+                  const token = tokens.find(t => tokenConfig && t.tokenId === tokenConfig.tokenId);
+                  
+                  if (tokenConfig && token) {
+                    return (
+                      <div className="mb-4 p-2 bg-blue-50 rounded-md border border-blue-100">
+                        <div className="text-xs text-blue-700 font-medium mb-1">TOKEN REQUIREMENT</div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-sm font-medium">
+                            {token.symbol}
+                          </div>
+                          <div className="text-sm bg-blue-100 px-2 py-1 rounded-md">
+                            Burn: {tokenConfig.burnAmount}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="mb-4 p-2 bg-gray-50 rounded-md border border-gray-100">
+                        <div className="text-xs text-gray-500">No token configuration</div>
+                      </div>
+                    );
+                  }
+                })()}
+                
                 <div className="flex justify-between gap-2">
                   <Button 
                     variant="outline" 
@@ -625,6 +718,65 @@ export default function PhysicalItemsNewPage() {
                     <FormLabel>Image URL</FormLabel>
                     <FormControl>
                       <Input {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="tokenId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Token</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a token" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {isLoadingTokens ? (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : tokens.length === 0 ? (
+                          <div className="text-center py-2 text-sm text-muted-foreground">
+                            No tokens available
+                          </div>
+                        ) : (
+                          tokens.map((token) => (
+                            <SelectItem key={token.tokenId} value={token.tokenId}>
+                              {token.name} ({token.symbol})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="burnAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Burn Amount</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min={1}
+                        placeholder="1"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        value={field.value}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
