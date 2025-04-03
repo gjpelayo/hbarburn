@@ -71,11 +71,13 @@ export function WalletConnectHeader() {
                 <circle cx="12" cy="12" r="4"/>
               </svg>
             </div>
-            <div className="font-bold text-neutral-800 text-xl">TokenBurn</div>
-            <div className="hidden md:block text-sm text-neutral-500 ml-2 mt-1">| Physical Redemption Platform</div>
+            <div>
+              <div className="font-bold text-neutral-800 text-xl">TokenBurn</div>
+              <div className="hidden md:block text-xs text-neutral-500">Physical Redemption Platform</div>
+            </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             {!isConnected ? (
               <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
                 <DialogTrigger asChild>

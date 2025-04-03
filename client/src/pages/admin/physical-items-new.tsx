@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +37,7 @@ const physicalItemSchema = z.object({
     .refine(val => !val || val.startsWith('data:image/') || val.startsWith('http'), 
       "Please provide a valid image URL or upload an image")
     .optional(),
+  stock: z.number().min(0, "Stock cannot be negative").default(0),
   tokenId: z.string().min(1, "Please select a token"),
   burnAmount: z.number().min(1, "Burn amount must be at least 1").default(1),
 });
@@ -79,6 +80,7 @@ export default function PhysicalItemsNewPage() {
     name: string;
     description: string;
     imageUrl: string;
+    stock: number;
     tokenId: string;
     burnAmount: number;
   }>({
@@ -87,6 +89,7 @@ export default function PhysicalItemsNewPage() {
       name: "",
       description: "",
       imageUrl: "",
+      stock: 0,
       tokenId: "",
       burnAmount: 1,
     },
@@ -150,6 +153,7 @@ export default function PhysicalItemsNewPage() {
       name: item.name,
       description: item.description || "",
       imageUrl: item.imageUrl || "",
+      stock: item.stock || 0,
       tokenId: tokenConfig?.tokenId || "",
       burnAmount: tokenConfig?.burnAmount || 1
     });
@@ -506,6 +510,7 @@ export default function PhysicalItemsNewPage() {
             name: "",
             description: "",
             imageUrl: "",
+            stock: 0,
             tokenId: "",
             burnAmount: 1
           });
@@ -674,6 +679,30 @@ export default function PhysicalItemsNewPage() {
                         value={field.value || ""}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="stock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stock Count</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="0"
+                        placeholder="Enter available quantity"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        value={field.value}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      How many of this item are available for redemption
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
