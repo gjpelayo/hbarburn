@@ -16,8 +16,7 @@ export default function SessionTest() {
   const checkSession = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest('GET', '/api/auth/session-status');
-      const data = await response.json();
+      const data = await apiRequest('GET', '/api/auth/session-status');
       console.log('Session status:', data);
       setSessionStatus(data);
       toast({
@@ -39,8 +38,7 @@ export default function SessionTest() {
   const setTestCookie = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest('GET', '/api/auth/test-cookie');
-      const data = await response.json();
+      const data = await apiRequest('GET', '/api/auth/test-cookie');
       console.log('Set cookie response:', data);
       toast({
         title: 'Test Cookie Set',
@@ -61,8 +59,7 @@ export default function SessionTest() {
   const checkTestCookie = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest('GET', '/api/auth/check-test-cookie');
-      const data = await response.json();
+      const data = await apiRequest('GET', '/api/auth/check-test-cookie');
       console.log('Check cookie response:', data);
       setCookieTest(data);
       toast({
