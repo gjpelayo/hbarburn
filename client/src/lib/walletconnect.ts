@@ -103,6 +103,7 @@ export async function initializeWalletConnect(): Promise<void> {
 
 export async function connectWalletConnect(): Promise<WalletConnectResponse> {
   try {
+    // Make sure SignClient is initialized
     if (!state.signClient) {
       await initializeWalletConnect();
       if (!state.signClient) {
@@ -110,6 +111,7 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
       }
     }
 
+    // If already connected, return the existing session
     if (state.isConnected && state.accountId) {
       console.log("Already connected to WalletConnect with account:", state.accountId);
       return {
@@ -118,20 +120,6 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
       };
     }
 
-    // FOR DEVELOPMENT TESTING ONLY
-    // Use a mock account for development testing since we're not fully connecting to a
-    // real wallet yet. In production, this would be the actual account from WalletConnect.
-    console.log("Using test account for development:", MOCK_TEST_ACCOUNT);
-    state.accountId = MOCK_TEST_ACCOUNT;
-    state.isConnected = true;
-    localStorage.setItem("walletconnect_account", MOCK_TEST_ACCOUNT);
-    
-    return {
-      success: true,
-      accountId: MOCK_TEST_ACCOUNT,
-    };
-
-    /* UNCOMMENT THIS FOR PRODUCTION USE WITH ACTUAL WALLET CONNECTION
     console.log("Connecting to WalletConnect...");
     
     // Prepare connection parameters
@@ -182,7 +170,6 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
       success: true,
       accountId: accountId,
     };
-    */
   } catch (error) {
     console.error("WalletConnect connection error:", error);
     QRCodeModal.close();
@@ -195,15 +182,6 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
 
 export async function disconnectWalletConnect() {
   try {
-    // FOR DEVELOPMENT:
-    // Just clear the local state
-    state.session = null;
-    state.accountId = null;
-    state.isConnected = false;
-    localStorage.removeItem("walletconnect_account");
-    return true;
-
-    /* UNCOMMENT THIS FOR PRODUCTION
     if (!state.session || !state.signClient) {
       console.log("No active WalletConnect session to disconnect");
       
@@ -233,7 +211,6 @@ export async function disconnectWalletConnect() {
     
     console.log("Disconnected from WalletConnect");
     return true;
-    */
   } catch (error) {
     console.error("WalletConnect disconnection error:", error);
     throw error;
@@ -242,48 +219,56 @@ export async function disconnectWalletConnect() {
 
 export async function burnTokensWithWalletConnect(tokenId: string, amount: number): Promise<string> {
   try {
-    if (!state.isConnected || !state.accountId) {
+    if (!state.isConnected || !state.accountId || !state.session || !state.signClient) {
       throw new Error("Not connected to WalletConnect");
     }
     
     // Get account ID
     const accountId = state.accountId;
     
-    console.log(`Burning ${amount} of token ${tokenId} from account ${accountId}`);
+    console.log(`Preparing to burn ${amount} of token ${tokenId} from account ${accountId}`);
     
-    // For development purposes only: simulate a transaction ID
-    const mockTransactionId = `${accountId}@${Math.floor(Date.now() / 1000)}`;
-    return mockTransactionId;
-    
-    /* UNCOMMENT THIS FOR PRODUCTION
     // Create the burn transaction
     const tokenBurn = new TokenBurnTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setAmount(amount);
     
-    // In a real implementation:
     // 1. Freeze the transaction
-    // const freezeTx = await tokenBurn
-    //   .freezeWith(client);
-    //
+    const freezeTx = await tokenBurn
+      .freezeWith(client);
+    
     // 2. Convert to bytes
-    // const freezeTxBytes = freezeTx.toBytes();
-    //
+    const freezeTxBytes = freezeTx.toBytes();
+    
     // 3. Send to wallet for signing via WalletConnect
-    // const result = await state.signClient.request({
-    //   topic: state.session.topic,
-    //   chainId: state.chainId,
-    //   request: {
-    //     method: "hedera_signAndExecuteTransaction",
-    //     params: {
-    //       transaction: freezeTxBytes.toString('hex')
-    //     }
-    //   }
-    // });
-    //
-    // 4. Get transaction ID from result
-    // return result.transaction_id;
-    */
+    console.log("Sending transaction to wallet for signing...");
+    try {
+      const result = await state.signClient.request({
+        topic: state.session.topic,
+        chainId: state.chainId,
+        request: {
+          method: "hedera_signAndExecuteTransaction",
+          params: {
+            transaction: Buffer.from(freezeTxBytes).toString('hex')
+          }
+        }
+      });
+      
+      console.log("Transaction signed and executed:", result);
+      
+      // 4. Extract transaction ID from result
+      if (result && result.transaction_id) {
+        return result.transaction_id;
+      } else {
+        // Fallback to a generated ID format if no transaction ID was returned
+        // This should only happen if the wallet implementation doesn't return the proper format
+        return `${accountId}@${Math.floor(Date.now() / 1000)}`;
+      }
+    } catch (signError) {
+      console.error("Error during wallet signing:", signError);
+      throw new Error("Failed to sign transaction with wallet: " + 
+        (signError instanceof Error ? signError.message : String(signError)));
+    }
   } catch (error) {
     console.error("WalletConnect burn transaction error:", error);
     throw error;
