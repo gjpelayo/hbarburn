@@ -6,22 +6,23 @@ import {
   ReactNode 
 } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  connectHashpack, 
-  disconnectHashpack, 
-  burnTokensWithHashpack,
-  initializeHashConnect
-} from "@/lib/hashconnect";
+import {
+  connectWalletConnect,
+  disconnectWalletConnect,
+  burnTokensWithWalletConnect,
+  initializeWalletConnect,
+  getWalletConnectState
+} from "@/lib/walletconnect";
 import { 
   connectBlade, 
   disconnectBlade, 
   burnTokensWithBlade 
 } from "@/lib/blade";
 import { Token } from "@/types";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-type WalletType = "hashpack" | "blade" | null;
+type WalletType = "walletconnect" | "blade" | null;
 
 interface WalletContextType {
   isConnected: boolean;
@@ -29,7 +30,7 @@ interface WalletContextType {
   walletType: WalletType;
   tokens: Token[];
   isLoading: boolean;
-  connectWallet: (walletType: "hashpack" | "blade") => Promise<boolean>;
+  connectWallet: (walletType: "walletconnect" | "blade") => Promise<boolean>;
   disconnectWallet: () => void;
   burnTokens: (tokenId: string, amount: number) => Promise<string>;
 }
@@ -52,7 +53,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   } = useQuery<Token[]>({
     queryKey: tokensQueryKey,
     queryFn: async () => {
-      if (!accountId) return [] as Token[];
+      if (!accountId) return [];
       try {
         console.log('Fetching tokens with accountId:', accountId);
         const response = await apiRequest<Token[]>('GET', `/api/tokens?accountId=${accountId}`);
@@ -60,7 +61,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         return response;
       } catch (error) {
         console.error('Error fetching tokens:', error);
-        return [] as Token[];
+        return [];
       }
     },
     enabled: !!accountId,
@@ -70,34 +71,37 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initAndAutoReconnect() {
       try {
-        // Initialize HashConnect - no need to await as it will initialize in background
-        initializeHashConnect().catch(err => console.error("HashConnect initialization error:", err));
+        // Initialize WalletConnect
+        await initializeWalletConnect().catch(error => console.error("WalletConnect initialization error:", error));
         
-        // Check for existing HashPack connection
-        const hashpackAccount = localStorage.getItem("hashpack_account");
-        if (hashpackAccount) {
-          const reconnected = await connectHashpack();
-          if (reconnected.success && reconnected.accountId) {
-            try {
-              // Authenticate with the backend
-              await apiRequest('POST', '/api/auth/wallet', { 
-                accountId: reconnected.accountId
-              });
-              
-              // Invalidate the admin user query so it refetches with new authentication
-              queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
-              
-              setAccountId(reconnected.accountId);
-              setWalletType("hashpack");
-              return;
-            } catch (authError) {
-              console.error("Authentication error on auto-reconnect:", authError);
-              // Continue to try the next wallet if authentication fails
-            }
+        // Check for existing WalletConnect session
+        const wcState = getWalletConnectState();
+        if (wcState.isConnected && wcState.accountId) {
+          try {
+            // Authenticate with the backend
+            await apiRequest('POST', '/api/auth/wallet', { 
+              accountId: wcState.accountId
+            });
+            
+            // Invalidate the admin user query so it refetches with new authentication
+            queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
+            
+            setAccountId(wcState.accountId);
+            setWalletType("walletconnect");
+            
+            toast({
+              title: "Wallet Reconnected",
+              description: `Connected to WalletConnect (${wcState.accountId})`,
+            });
+            
+            return;
+          } catch (authError) {
+            console.error("Authentication error on auto-reconnect:", authError);
+            // Continue to try the next wallet if authentication fails
           }
         }
         
-        // Try Blade if HashPack failed
+        // Try Blade as fallback
         const bladeAccount = localStorage.getItem("blade_account");
         if (bladeAccount) {
           const reconnected = await connectBlade();
@@ -113,6 +117,12 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
               
               setAccountId(reconnected.accountId);
               setWalletType("blade");
+              
+              toast({
+                title: "Wallet Reconnected",
+                description: `Connected to Blade (${reconnected.accountId})`,
+              });
+              
               return;
             } catch (authError) {
               console.error("Authentication error on auto-reconnect:", authError);
@@ -125,13 +135,13 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     }
     
     initAndAutoReconnect();
-  }, []);
+  }, [toast]);
   
-  const connectWallet = async (type: "hashpack" | "blade"): Promise<boolean> => {
+  const connectWallet = async (type: "walletconnect" | "blade"): Promise<boolean> => {
     try {
       let result;
-      if (type === "hashpack") {
-        result = await connectHashpack();
+      if (type === "walletconnect") {
+        result = await connectWalletConnect();
       } else if (type === "blade") {
         result = await connectBlade();
       } else {
@@ -154,14 +164,14 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
           
           toast({
             title: "Wallet Connected",
-            description: `Connected to ${type === 'hashpack' ? 'HashPack' : 'Blade'} (${result.accountId})`,
+            description: `Connected to ${type === 'walletconnect' ? 'WalletConnect' : 'Blade'} (${result.accountId})`,
           });
           return true;
         } catch (authError) {
           console.error("Authentication error:", authError);
           // Disconnect the wallet if authentication fails
-          if (type === "hashpack") {
-            await disconnectHashpack();
+          if (type === "walletconnect") {
+            await disconnectWalletConnect();
           } else if (type === "blade") {
             await disconnectBlade();
           }
@@ -178,7 +188,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       } else {
         toast({
           title: "Connection Failed",
-          description: result.error || `Could not connect to ${type === 'hashpack' ? 'HashPack' : 'Blade'}`,
+          description: result.error || `Could not connect to ${type === 'walletconnect' ? 'WalletConnect' : 'Blade'}`,
           variant: "destructive",
         });
       }
@@ -196,8 +206,8 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   
   const disconnectWallet = async () => {
     try {
-      if (walletType === "hashpack") {
-        await disconnectHashpack();
+      if (walletType === "walletconnect") {
+        await disconnectWalletConnect();
       } else if (walletType === "blade") {
         await disconnectBlade();
       }
@@ -240,16 +250,16 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      if (walletType === "hashpack") {
-        // Call HashPack's burn function with the real implementation
-        const txId = await burnTokensWithHashpack(tokenId, amount);
+      if (walletType === "walletconnect") {
+        // Call WalletConnect's burn function
+        const txId = await burnTokensWithWalletConnect(tokenId, amount);
         
         // Refetch token balances after burn
         await refetchTokens();
         
         return txId;
       } else if (walletType === "blade") {
-        // Call Blade's burn function with the real implementation
+        // Call Blade's burn function
         const txId = await burnTokensWithBlade(tokenId, amount);
         
         // Refetch token balances after burn
