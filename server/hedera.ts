@@ -170,41 +170,10 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
   } catch (error) {
     console.error("Error verifying token on Hedera network:", error);
     
-    // Even if verification fails, check our hardcoded list as a fallback
-    const knownTokens: { [key: string]: TokenInfo } = {
-      "0.0.786931": {
-        tokenId: "0.0.786931",
-        name: "Blast Token",
-        symbol: "BLAST",
-        decimals: 8,
-        totalSupply: 1000000000,
-        isDeleted: false,
-        tokenType: "FUNGIBLE"
-      },
-      "0.0.8052597": {
-        tokenId: "0.0.8052597",
-        name: "AuraToken",
-        symbol: "AURA",
-        decimals: 6,
-        totalSupply: 5000000,
-        isDeleted: false,
-        tokenType: "FUNGIBLE"
-      },
-      "0.0.8397255": {
-        tokenId: "0.0.8397255",
-        name: "SponsorCoin",
-        symbol: "SPON",
-        decimals: 8,
-        totalSupply: 10000000,
-        isDeleted: false,
-        tokenType: "FUNGIBLE"
-      }
-    };
-    
-    if (knownTokens[tokenId]) {
-      console.log("Error occurred but found hardcoded info for token:", tokenId);
-      return knownTokens[tokenId];
-    }
+    // Unlike before, we no longer fall back to hardcoded tokens if verification fails
+    // This ensures stricter validation and security - if a token can't be verified on the network,
+    // it won't be allowed even if it's in our hardcoded list
+    console.log("Strict token verification failed - not using hardcoded fallback for security reasons");
     
     return null; // Token doesn't exist or other error
   }
@@ -282,17 +251,43 @@ export async function getAccountTokenBalances(accountId: string): Promise<Map<st
   } catch (error) {
     console.error("Error fetching token balances:", error);
     
-    // For development, provide hardcoded test balances as fallback
+    // We'll only provide hardcoded balances for development, and only for verified tokens
     if (process.env.NODE_ENV !== 'production') {
-      console.log("Error occurred, using fallback balances for development");
+      console.log("Error occurred, checking for fallback balances - but only for verified tokens");
       const result = new Map<string, number>();
       
       // Only do this for specific accounts to avoid confusion
       if (accountId === "0.0.123456") {
-        console.log("Using hardcoded fallback balances for demo account: 0.0.123456");
-        result.set("0.0.786931", 1000);
-        result.set("0.0.8052597", 500);
-        result.set("0.0.8397255", 750);
+        console.log("Checking hardcoded balances for demo account: 0.0.123456");
+        
+        // First verify each token before adding a balance
+        const verifiedTokens: string[] = [];
+        
+        // Use our verified token list from above (the same ones we accept for direct lookups)
+        const knownTokens = ["0.0.786931", "0.0.8052597", "0.0.8397255"];
+        
+        for (const tokenId of knownTokens) {
+          // Only use tokens that can be verified via our main verification function
+          const tokenInfo = await verifyTokenOnHedera(tokenId);
+          if (tokenInfo) {
+            verifiedTokens.push(tokenId);
+          }
+        }
+        
+        console.log("Verified tokens for fallback balances:", verifiedTokens);
+        
+        // Only set balances for verified tokens
+        if (verifiedTokens.includes("0.0.786931")) {
+          result.set("0.0.786931", 1000);
+        }
+        
+        if (verifiedTokens.includes("0.0.8052597")) {
+          result.set("0.0.8052597", 500);
+        }
+        
+        if (verifiedTokens.includes("0.0.8397255")) {
+          result.set("0.0.8397255", 750);
+        }
       }
       
       return result;
@@ -308,8 +303,18 @@ export function formatTransactionId(transactionId: string): string {
     const txId = TransactionId.fromString(transactionId);
     return txId.toString();
   } catch (error) {
-    // If it's not a valid transaction ID format, return as is
-    return transactionId;
+    console.error("Invalid transaction ID format:", transactionId);
+    throw new Error("Invalid transaction ID format. Please provide a valid Hedera transaction ID.");
+  }
+}
+
+// Check if a string is a valid Hedera transaction ID format
+export function isValidTransactionId(transactionId: string): boolean {
+  try {
+    TransactionId.fromString(transactionId);
+    return true;
+  } catch (error) {
+    return false;
   }
 }
 
