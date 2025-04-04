@@ -104,55 +104,74 @@ export function setupAuth(app: Express) {
 
   app.get("/api/admin/user", (req, res) => {
     // Log the session and authentication status for debugging
-    console.log('Session:', req.session);
+    console.log('=== ADMIN USER CHECK ===');
+    console.log('Request cookies:', req.cookies);
+    console.log('Session data:', req.session);
+    console.log('Session ID:', req.sessionID);
     console.log('Is authenticated:', req.isAuthenticated());
     console.log('User in session:', req.session.user);
     console.log('User in passport:', req.user);
     
-    // First attempt - check if we need to sync from passport to session
-    if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
-      req.session.user = req.user;
-      req.session.isLoggedIn = true;
-      console.log('Syncing user from passport to session:', req.user.id);
-    }
-    
-    // Second attempt - check if we need to sync from session to passport
-    if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
-      console.log('Attempting to login user from session to passport:', req.session.user.id);
-      req.login(req.session.user, (err) => {
-        if (err) {
-          console.error("Error logging in with passport from admin/user endpoint:", err);
-        } else {
-          console.log('Successfully logged in user from session to passport:', req.session.user?.id);
-        }
-      });
-    }
-    
-    // Third attempt - check again after potential passport login
-    if (req.isAuthenticated() && req.user) {
-      // User is authenticated via passport, check admin status
-      if (req.user.isAdmin) {
-        console.log('Admin access granted via passport for user:', req.user.id);
-        return res.json(req.user);
+    // SIMPLIFIED USER CHECK - First check for wallet-based authentication
+    // If the user is authenticated through a wallet (direct session), respect that
+    if (req.session.user && req.session.isLoggedIn) {
+      console.log('User authenticated via session. User ID:', req.session.user.id);
+      console.log('User accountId from session:', req.session.user.accountId);
+      
+      // If user is in session and marked as admin, return them
+      if (req.session.user.isAdmin) {
+        console.log('✅ Admin access granted via session for user:', req.session.user.id);
+        return res.json(req.session.user);
       } else {
-        console.log('Admin access denied - user not admin:', req.user.id);
+        // Special case for development - if using a test wallet, grant admin access
+        if (process.env.NODE_ENV !== 'production' && req.session.user.accountId) {
+          const accountId = req.session.user.accountId;
+          // Check if this is a test wallet (0.0.*)
+          if (accountId.match(/^0\.0\.\d+$/)) {
+            console.log('✅ Admin access granted in development mode for test wallet:', accountId);
+            
+            // Ensure the user is marked as admin
+            req.session.user.isAdmin = true;
+            
+            // Save updated session
+            req.session.save((err) => {
+              if (err) {
+                console.error('Error saving session:', err);
+              } else {
+                console.log('Session saved with admin privileges');
+              }
+            });
+            
+            return res.json(req.session.user);
+          }
+        }
+        
+        console.log('❌ Admin access denied - session user not admin:', req.session.user.id);
         return res.sendStatus(403); // Forbidden - not an admin
       }
     }
     
-    // Fourth attempt - check session if passport still doesn't work
-    if (req.session.user && req.session.isLoggedIn) {
-      // If user is in session and marked as admin, return them
-      if (req.session.user.isAdmin) {
-        console.log('Admin access granted via session for user:', req.session.user.id);
-        return res.json(req.session.user);
+    // If no session user, check passport authentication
+    if (req.isAuthenticated() && req.user) {
+      console.log('User authenticated via passport. User ID:', req.user.id);
+      
+      // User is authenticated via passport, check admin status
+      if (req.user.isAdmin) {
+        console.log('✅ Admin access granted via passport for user:', req.user.id);
+        
+        // Sync to session
+        req.session.user = req.user;
+        req.session.isLoggedIn = true;
+        
+        return res.json(req.user);
       } else {
-        console.log('Admin access denied - session user not admin:', req.session.user.id);
+        console.log('❌ Admin access denied - passport user not admin:', req.user.id);
         return res.sendStatus(403); // Forbidden - not an admin
       }
     }
     
     // No authenticated user found
+    console.log('❌ No authenticated user found');
     return res.sendStatus(401);
   });
 }

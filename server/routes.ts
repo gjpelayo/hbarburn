@@ -229,7 +229,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("=== BEGIN SIGNATURE AUTHENTICATION ===");
       console.log("Request body:", req.body);
       console.log("Session before authentication:", req.session);
-      console.log("Is authenticated before:", req.isAuthenticated());
       
       const { accountId, message, signature } = signatureAuthSchema.parse(req.body);
       
@@ -241,9 +240,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // TODO: We would use Hedera SDK to verify the signature here
       // This is a placeholder until we have the proper implementation
       // For demo purposes, we'll consider it valid if the signature is provided
-      
-      // This should be replaced with proper verification when available:
-      // const isValid = verifySignature(accountId, message, signature);
       const isValid = true; // TEMPORARY! Replace with actual verification
       
       if (!isValid) {
@@ -256,59 +252,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Signature validation passed, creating user");
       
-      // Create or get a user based on the wallet's account ID
-      const user = await storage.createOrGetWalletUser(accountId);
-      console.log("User created/retrieved:", user);
-      
-      // Store user in session
-      req.session.user = user;
-      req.session.isLoggedIn = true;
-      
-      console.log("✅ Session user set:", req.session.user);
-      console.log("Session updated with user:", req.session);
-      
-      // Save the session first to ensure it's stored before passport login
-      req.session.save((err) => {
-        if (err) {
-          console.error("Error saving session:", err);
-          return res.status(500).json({ 
-            success: false, 
-            error: "Session save failed" 
-          });
-        }
+      try {
+        // Create or get a user based on the wallet's account ID
+        const user = await storage.createOrGetWalletUser(accountId);
+        console.log("User created/retrieved:", user);
         
-        console.log("Session saved successfully");
+        // Store the full user object in the session
+        req.session.user = user;
+        req.session.isLoggedIn = true;
         
-        // Then login with passport
-        req.login(user, (err) => {
+        console.log("✅ Session user set:", req.session.user);
+        
+        // Save the session explicitly and wait for completion
+        req.session.save((err) => {
           if (err) {
-            console.error("Error logging in with passport:", err);
+            console.error("Error saving session:", err);
             return res.status(500).json({ 
               success: false, 
-              error: "Wallet signature login failed" 
+              error: "Session save failed" 
             });
           }
           
-          console.log("Successfully authenticated user via signature:", user.id, user.accountId);
-          console.log("Is authenticated after:", req.isAuthenticated());
-          console.log("Session after full authentication:", req.session);
+          console.log("Session saved successfully");
+          console.log("Session after save:", req.session);
           
-          // Set a specific cookie to test cookie functionality
-          res.cookie('auth_test', 'signature_auth_success', {
-            maxAge: 24 * 60 * 60 * 1000, // 1 day
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          });
-          
-          // Return success response
-          console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
-          return res.json({ 
+          // Return success response immediately after session is saved
+          res.json({ 
             success: true,
             accountId: user.accountId
           });
+          
+          console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
         });
-      });
+      } catch (storageError) {
+        console.error("Error retrieving/creating user:", storageError);
+        return res.status(500).json({ 
+          success: false, 
+          error: "User creation/retrieval failed" 
+        });
+      }
     } catch (error) {
       console.error("Signature verification error:", error);
       
