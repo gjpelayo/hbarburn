@@ -40,25 +40,38 @@ declare module "express-session" {
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  // Log authentication status for debugging
-  console.log("isAuthenticated middleware:");
+  // Enhanced debug logging
+  console.log("=== AUTH MIDDLEWARE CHECK ===");
+  console.log("- Session ID:", req.sessionID);
+  console.log("- Cookie header:", req.headers.cookie);
   console.log("- Session user:", req.session.user ? `ID: ${req.session.user.id}` : 'None');
   console.log("- Session isLoggedIn:", req.session.isLoggedIn);
   console.log("- Passport authenticated:", req.isAuthenticated());
   console.log("- Passport user:", req.user ? `ID: ${req.user.id}` : 'None');
+  console.log("- Session cookie settings:", req.session.cookie);
   
-  // Check both session and passport for authentication
+  // SIMPLIFIED AUTHENTICATION LOGIC
+  // Either session auth OR passport auth is sufficient
   if ((req.session.isLoggedIn && req.session.user) || req.isAuthenticated()) {
     console.log("✅ User is authenticated");
     
-    // Sync user data between passport and session if needed
+    // SYNC DATA BETWEEN SESSION AND PASSPORT
+    // This ensures consistency between the two auth mechanisms
     if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
-      // Sync from passport to session
+      // Case 1: Passport has user but session doesn't - sync to session
       req.session.user = req.user;
       req.session.isLoggedIn = true;
-      console.log("✅ Synced user from passport to session");
+      
+      // Force save
+      req.session.save((err) => {
+        if (err) {
+          console.error("❌ Error saving session:", err);
+        } else {
+          console.log("✅ Synced user from passport to session and saved");
+        }
+      });
     } else if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
-      // Sync from session to passport
+      // Case 2: Session has user but passport doesn't - sync to passport
       req.login(req.session.user, (err) => {
         if (err) {
           console.error("❌ Error syncing user from session to passport:", err);
@@ -71,7 +84,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   
-  // Not authenticated
+  // Not authenticated by any method
   console.log("❌ User is not authenticated");
   return res.status(401).json({ message: "Unauthorized" });
 }
@@ -228,7 +241,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("=== BEGIN SIGNATURE AUTHENTICATION ===");
       console.log("Request body:", req.body);
-      console.log("Session before authentication:", req.session);
+      console.log("Session ID before auth:", req.sessionID);
+      console.log("Cookies:", req.cookies);
       
       const { accountId, message, signature } = signatureAuthSchema.parse(req.body);
       
@@ -250,71 +264,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get or create the full user record immediately
-      try {
-        // This function gets/creates a full user record in the database
-        const user = await storage.createOrGetWalletUser(accountId);
-        console.log("User created/retrieved from storage:", user);
-        
-        // Deep clone the user to ensure it's properly serialized
-        const userCopy = JSON.parse(JSON.stringify(user));
-        console.log("User object stringified and parsed to ensure proper serialization:", userCopy);
-
-        // Use Passport login first to set up the session correctly
-        return new Promise<void>((resolve, reject) => {
-          req.login(userCopy, async (loginErr) => {
-            if (loginErr) {
-              console.error("Passport login error:", loginErr);
-              return res.status(500).json({ success: false, error: "Login failed" });
-            }
-            
-            console.log("Passport authenticated:", req.isAuthenticated());
-            console.log("Passport user:", req.user);
-            
-            // Explicitly set session data as well (belt and suspenders)
-            req.session.user = userCopy;
-            req.session.isLoggedIn = true;
-            
-            // Save the session
-            try {
-              await new Promise<void>((resolveSession, rejectSession) => {
-                req.session.save((saveErr) => {
-                  if (saveErr) {
-                    console.error("Session save error:", saveErr);
-                    rejectSession(saveErr);
-                  } else {
-                    console.log("Session saved successfully");
-                    resolveSession();
-                  }
-                });
-              });
-              
-              console.log("AFTER SESSION SAVE:");
-              console.log("- Session ID:", req.sessionID);
-              console.log("- Authenticated:", req.isAuthenticated());
-              console.log("- Session user:", req.session.user);
-              console.log("- Passport user:", req.user);
-              console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
-              
-              return res.json({ 
-                success: true,
-                accountId: userCopy.accountId,
-                userId: userCopy.id,
-                isAdmin: userCopy.isAdmin
-              });
-            } catch (saveError) {
-              console.error("Session save error:", saveError);
-              return res.status(500).json({ success: false, error: "Session save failed" });
-            }
-          });
+      // Get or create the user
+      const user = await storage.createOrGetWalletUser(accountId);
+      console.log("User created/retrieved from storage:", user);
+      
+      // SOLUTION: Let's apply a much cleaner and more reliable approach
+      
+      // 1. First, manually set session properties
+      req.session.user = user;
+      req.session.isLoggedIn = true;
+      
+      // 2. Force session save - IMPORTANT!
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("❌ Session save error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Session saved successfully");
+            resolve();
+          }
         });
-      } catch (storageError) {
-        console.error("User retrieval/storage error:", storageError);
-        return res.status(500).json({ 
-          success: false, 
-          error: "Failed to create or retrieve user" 
+      });
+      
+      // 3. Then use req.login to make Passport aware of the user
+      await new Promise<void>((resolve, reject) => {
+        req.login(user, (err) => {
+          if (err) {
+            console.error("❌ Passport login error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Passport login successful");
+            resolve();
+          }
         });
-      }
+      });
+      
+      // 4. Double-check everything worked
+      console.log("=== AUTHENTICATION SUMMARY ===");
+      console.log("- Session ID:", req.sessionID);
+      console.log("- Authenticated:", req.isAuthenticated());
+      console.log("- Session user:", req.session.user?.id);
+      console.log("- Passport user:", req.user?.id);
+      
+      // 5. Send the response
+      return res.json({ 
+        success: true,
+        accountId: user.accountId,
+        userId: user.id,
+        isAdmin: user.isAdmin
+      });
     } catch (error) {
       console.error("Signature verification error:", error);
       
@@ -329,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(500).json({ 
         success: false, 
-        error: "Signature verification failed" 
+        error: "Authentication failed: " + (error instanceof Error ? error.message : String(error)) 
       });
     }
   });
@@ -456,6 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/check-test-cookie", (req, res) => {
     console.log("=== CHECKING TEST COOKIE ===");
     console.log("Cookies received:", req.cookies);
+    console.log("Session ID:", req.sessionID);
     
     const testCookie = req.cookies?.test_cookie;
     
@@ -463,6 +463,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cookieExists: !!testCookie,
       cookieValue: testCookie || null,
       allCookies: req.cookies,
+      sessionID: req.sessionID,
+      headers: {
+        cookie: req.headers.cookie,
+      }
+    });
+  });
+  
+  // Endpoint to dump all information for debugging sessions
+  app.get("/api/auth/debug", (req, res) => {
+    console.log("=== FULL SESSION DEBUG ===");
+    console.log("Headers:", req.headers);
+    console.log("Cookies:", req.cookies);
+    console.log("SessionID:", req.sessionID);
+    console.log("Session:", req.session);
+    console.log("Is authenticated:", req.isAuthenticated());
+    
+    res.json({
+      sessionID: req.sessionID,
+      cookies: req.cookies,
+      authenticated: req.isAuthenticated(),
+      session: {
+        id: req.session.id,
+        cookie: req.session.cookie,
+        hasUser: !!req.session.user,
+        isLoggedIn: !!req.session.isLoggedIn
+      },
+      headers: {
+        cookie: req.headers.cookie
+      },
+      user: req.user ? {
+        id: req.user.id,
+        username: req.user.username,
+        accountId: req.user.accountId,
+        isAdmin: req.user.isAdmin
+      } : null
     });
   });
   

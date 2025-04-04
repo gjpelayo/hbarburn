@@ -32,26 +32,27 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['set-cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
 }));
 
-// Parse cookies
-app.use(cookieParser());
+// Parse cookies - we need cookie-parser before session middleware
+app.use(cookieParser('hedera-token-redemption-secret')); // Same secret as session for signed cookies
 
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // IMPORTANT: Set up session middleware BEFORE passport
+const isProduction = process.env.NODE_ENV === 'production';
 const sessionSettings: session.SessionOptions = {
   secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Changed to true to ensure all sessions are saved
   cookie: {
     httpOnly: true,
-    secure: true,        // Force HTTPS-only cookies
-    sameSite: 'none',    // Allow cross-origin cookies
+    secure: false,       // Don't require HTTPS in development
+    sameSite: 'lax',     // Less restrictive SameSite setting for development
     maxAge: 604800000    // 7 days
   },
   store: storage.sessionStore
