@@ -251,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create a minimal user object that satisfies the User type
-      req.session.user = {
+      const tempUser = {
         id: 999, // Temporary ID
         username: null,
         password: null,
@@ -261,50 +261,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      req.session.isLoggedIn = true;
       
-      console.log("✅ Session user set:", req.session.user);
-      console.log("Session after direct user assignment:", req.session);
-      
-      // Save the session explicitly and wait for completion
-      req.session.save((err) => {
-        if (err) {
-          console.error("Error saving session:", err);
-          return res.status(500).json({ 
-            success: false, 
-            error: "Session save failed" 
-          });
+      // First try to login with passport
+      req.login(tempUser, (loginErr) => {
+        if (loginErr) {
+          console.error("Initial Passport login failed:", loginErr);
+        } else {
+          console.log("✅ Initial Passport login successful");
         }
         
-        console.log("Session saved successfully");
-        console.log("Session ID:", req.sessionID);
-        console.log("Session after save:", req.session);
+        // Set the session user regardless of passport login success
+        req.session.user = tempUser;
+        req.session.isLoggedIn = true;
         
-        // Return success response immediately after session is saved
-        res.json({ 
-          success: true,
-          accountId
+        console.log("✅ Session user set:", req.session.user);
+        console.log("Session after direct user assignment:", req.session);
+        
+        // Save the session explicitly and wait for completion
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error saving session:", err);
+            return res.status(500).json({ 
+              success: false, 
+              error: "Session save failed" 
+            });
+          }
+          
+          console.log("Session saved successfully");
+          console.log("Session ID:", req.sessionID);
+          console.log("Is authenticated immediately after save:", req.isAuthenticated());
+          console.log("Session after save:", req.session);
+          
+          // Return success response immediately after session is saved
+          res.json({ 
+            success: true,
+            accountId
+          });
+          
+          console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
         });
+      });
         
-        console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
-        
-        // After responding to client, try to update the user data in background
-        try {
-          storage.createOrGetWalletUser(accountId).then(user => {
+      // Now attempt to get or create the full user record
+      try {
+        // This function gets/creates a full user record in the database
+        storage.createOrGetWalletUser(accountId)
+          .then(user => {
             if (user) {
-              console.log("User created/retrieved in background:", user);
+              console.log("User created/retrieved from storage:", user);
               
-              // Update session with full user data
-              req.session.user = user;
-              req.session.save();
+              // Login with passport first
+              req.login(user, (err) => {
+                if (err) {
+                  console.error("Failed to log in user after signature auth:", err);
+                  return;
+                }
+                console.log("✅ Passport user logged in after signature auth:", user);
+                
+                // Then update the session
+                req.session.user = user;
+                req.session.isLoggedIn = true;
+                
+                // Save the updated session
+                req.session.save((saveErr) => {
+                  if (saveErr) {
+                    console.error("Failed to save session after Passport login:", saveErr);
+                  } else {
+                    console.log("✅ Session saved with full user data after Passport login");
+                  }
+                });
+              });
             }
-          }).catch(err => {
+          })
+          .catch(err => {
             console.error("Background user retrieval failed:", err);
           });
-        } catch (storageError) {
-          console.error("Background user retrieval error:", storageError);
-        }
-      });
+      } catch (storageError) {
+        console.error("Background user retrieval error:", storageError);
+      }
     } catch (error) {
       console.error("Signature verification error:", error);
       
