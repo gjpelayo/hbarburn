@@ -128,7 +128,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const createPhysicalItemMutation = useMutation({
     mutationFn: async (item: InsertPhysicalItem) => {
       const res = await apiRequest("POST", "/api/admin/physical-items", item);
-      return await res.json();
+      const data = await res.json();
+      return data;
     },
     onError: (error: Error) => {
       toast({
@@ -142,7 +143,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const updatePhysicalItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: UpdatePhysicalItem }) => {
       const res = await apiRequest("PATCH", `/api/admin/physical-items/${id}`, data);
-      return await res.json();
+      const responseData = await res.json();
+      return responseData;
     },
     onError: (error: Error) => {
       toast({
@@ -170,7 +172,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const createTokenMutation = useMutation({
     mutationFn: async (token: InsertToken) => {
       const res = await apiRequest("POST", "/api/admin/tokens", token);
-      return await res.json();
+      const data = await res.json();
+      return data;
     },
     onError: (error: Error) => {
       toast({
@@ -184,7 +187,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const updateTokenMutation = useMutation({
     mutationFn: async ({ tokenId, data }: { tokenId: string, data: UpdateToken }) => {
       const res = await apiRequest("PATCH", `/api/admin/tokens/${tokenId}`, data);
-      return await res.json();
+      const responseData = await res.json();
+      return responseData;
     },
     onError: (error: Error) => {
       toast({
@@ -212,7 +216,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const createTokenConfigurationMutation = useMutation({
     mutationFn: async (config: InsertTokenConfiguration) => {
       const res = await apiRequest("POST", "/api/admin/token-configurations", config);
-      return await res.json();
+      const data = await res.json();
+      return data;
     },
     onError: (error: Error) => {
       toast({
@@ -226,7 +231,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const updateTokenConfigurationMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: UpdateTokenConfiguration }) => {
       const res = await apiRequest("PATCH", `/api/admin/token-configurations/${id}`, data);
-      return await res.json();
+      const responseData = await res.json();
+      return responseData;
     },
     onError: (error: Error) => {
       toast({
