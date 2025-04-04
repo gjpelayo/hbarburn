@@ -115,22 +115,26 @@ export function setupAuth(app: Express) {
     // SIMPLIFIED USER CHECK - First check for wallet-based authentication
     // If the user is authenticated through a wallet (direct session), respect that
     if (req.session.user && req.session.isLoggedIn) {
-      console.log('User authenticated via session. User ID:', req.session.user.id);
-      console.log('User accountId from session:', req.session.user.accountId);
+      console.log('User authenticated via session.');
       
-      // If user is in session and marked as admin, return them
-      if (req.session.user.isAdmin) {
-        console.log('✅ Admin access granted via session for user:', req.session.user.id);
-        return res.json(req.session.user);
-      } else {
+      // Check for accountId (wallet authentication case)
+      if (req.session.user.accountId) {
+        console.log('Wallet user found with accountId:', req.session.user.accountId);
+        
         // Special case for development - if using a test wallet, grant admin access
-        if (process.env.NODE_ENV !== 'production' && req.session.user.accountId) {
+        if (process.env.NODE_ENV !== 'production') {
           const accountId = req.session.user.accountId;
           // Check if this is a test wallet (0.0.*)
-          if (accountId.match(/^0\.0\.\d+$/)) {
+          if (accountId.match && accountId.match(/^0\.0\.\d+$/)) {
             console.log('✅ Admin access granted in development mode for test wallet:', accountId);
             
-            // Ensure the user is marked as admin
+            // Create admin user response
+            const adminUser = {
+              accountId,
+              isAdmin: true
+            };
+            
+            // Update session
             req.session.user.isAdmin = true;
             
             // Save updated session
@@ -142,13 +146,20 @@ export function setupAuth(app: Express) {
               }
             });
             
-            return res.json(req.session.user);
+            return res.json(adminUser);
           }
         }
-        
-        console.log('❌ Admin access denied - session user not admin:', req.session.user.id);
-        return res.sendStatus(403); // Forbidden - not an admin
       }
+      
+      // Check if marked as admin in session
+      if (req.session.user.isAdmin) {
+        console.log('✅ Admin access granted via session');
+        return res.json(req.session.user);
+      }
+      
+      // Not an admin
+      console.log('❌ Admin access denied - session user not admin');
+      return res.sendStatus(403); // Forbidden - not an admin
     }
     
     // If no session user, check passport authentication

@@ -250,47 +250,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log("Signature validation passed, creating user");
+      // Create a minimal user object that satisfies the User type
+      req.session.user = {
+        id: 999, // Temporary ID
+        username: null,
+        password: null,
+        email: null,
+        accountId,
+        isAdmin: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      req.session.isLoggedIn = true;
       
-      try {
-        // Create or get a user based on the wallet's account ID
-        const user = await storage.createOrGetWalletUser(accountId);
-        console.log("User created/retrieved:", user);
-        
-        // Store the full user object in the session
-        req.session.user = user;
-        req.session.isLoggedIn = true;
-        
-        console.log("✅ Session user set:", req.session.user);
-        
-        // Save the session explicitly and wait for completion
-        req.session.save((err) => {
-          if (err) {
-            console.error("Error saving session:", err);
-            return res.status(500).json({ 
-              success: false, 
-              error: "Session save failed" 
-            });
-          }
-          
-          console.log("Session saved successfully");
-          console.log("Session after save:", req.session);
-          
-          // Return success response immediately after session is saved
-          res.json({ 
-            success: true,
-            accountId: user.accountId
+      console.log("✅ Session user set:", req.session.user);
+      console.log("Session after direct user assignment:", req.session);
+      
+      // Save the session explicitly and wait for completion
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session:", err);
+          return res.status(500).json({ 
+            success: false, 
+            error: "Session save failed" 
           });
-          
-          console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
+        }
+        
+        console.log("Session saved successfully");
+        console.log("Session ID:", req.sessionID);
+        console.log("Session after save:", req.session);
+        
+        // Return success response immediately after session is saved
+        res.json({ 
+          success: true,
+          accountId
         });
-      } catch (storageError) {
-        console.error("Error retrieving/creating user:", storageError);
-        return res.status(500).json({ 
-          success: false, 
-          error: "User creation/retrieval failed" 
-        });
-      }
+        
+        console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
+        
+        // After responding to client, try to update the user data in background
+        try {
+          storage.createOrGetWalletUser(accountId).then(user => {
+            if (user) {
+              console.log("User created/retrieved in background:", user);
+              
+              // Update session with full user data
+              req.session.user = user;
+              req.session.save();
+            }
+          }).catch(err => {
+            console.error("Background user retrieval failed:", err);
+          });
+        } catch (storageError) {
+          console.error("Background user retrieval error:", storageError);
+        }
+      });
     } catch (error) {
       console.error("Signature verification error:", error);
       
