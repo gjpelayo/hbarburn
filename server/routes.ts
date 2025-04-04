@@ -815,8 +815,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Always check if the token exists in our database first
       const tokenData = await storage.getTokenById(tokenId);
-      if (tokenData) {
-        console.log("Found token in database:", tokenData);
+      
+      // If we have token data with name and symbol in database, use that
+      if (tokenData && tokenData.name && tokenData.symbol) {
+        console.log("Found complete token in database:", tokenData);
         return res.json({
           isValid: true,
           tokenInfo: {
@@ -831,7 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If not in database, check basic token ID format
+      // If not in database or incomplete data, check basic token ID format
       if (!isValidTokenId(tokenId)) {
         return res.status(400).json({ 
           message: "Invalid token ID format (should be 0.0.xxxx)",
@@ -839,11 +841,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verify token on Hedera network if client is properly initialized
-      const hasOperator = client && client.operatorAccountId && client.operatorPublicKey;
-      if (!hasOperator) {
-        console.log("No operator credentials for Hedera client - accepting valid format token ID");
-        // For development without operator credentials, just accept the token ID
+      // Try to get real token information from Hedera network
+      console.log("Verifying token on Hedera network:", tokenId);
+      const tokenInfo = await verifyTokenOnHedera(tokenId);
+      
+      // If we successfully retrieved token info from Hedera
+      if (tokenInfo) {
+        console.log("Token verified on Hedera:", tokenInfo);
+        
+        // If we have the token in database but with incomplete info, update it
+        if (tokenData) {
+          console.log("Updating existing token with Hedera info:", tokenInfo);
+          await storage.updateToken(tokenId, {
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            decimals: tokenInfo.decimals
+          });
+        } else {
+          // Add new token to database with the verified info
+          console.log("Adding new verified token to database:", tokenInfo);
+          try {
+            await storage.createToken({
+              tokenId: tokenInfo.tokenId,
+              name: tokenInfo.name,
+              symbol: tokenInfo.symbol,
+              decimals: tokenInfo.decimals,
+              redemptionItem: `${tokenInfo.name} Redemption Item`
+            });
+          } catch (err) {
+            console.error("Failed to add token to database:", err);
+            // Continue even if database add fails
+          }
+        }
+        
+        // Return the verified token info
+        return res.json({
+          isValid: true,
+          tokenInfo
+        });
+      }
+      
+      // Token verification failed - handle based on environment
+      console.log("Token verification failed for:", tokenId);
+      
+      // If we have a token in database but with missing info, use placeholder
+      if (tokenData) {
+        console.log("Using database token with placeholder info:", tokenId);
+        return res.json({
+          isValid: true,
+          tokenInfo: {
+            tokenId,
+            name: tokenData.name || `Token ${tokenId}`,
+            symbol: tokenData.symbol || "TKN",
+            decimals: tokenData.decimals || 0,
+            totalSupply: 1000000,
+            isDeleted: false,
+            tokenType: "FUNGIBLE"
+          }
+        });
+      }
+      
+      // In development mode, accept the token ID even if verification fails
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("Accepting unverified token in development mode:", tokenId);
         return res.json({
           isValid: true,
           tokenInfo: {
@@ -858,42 +918,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If operator is configured, try to verify on network
-      const tokenInfo = await verifyTokenOnHedera(tokenId);
-      
-      if (!tokenInfo) {
-        // In development mode, accept the token ID format since the operator might not have visibility
-        if (process.env.NODE_ENV !== 'production') {
-          console.log("Token not found on network but accepting in development mode:", tokenId);
-          return res.json({
-            isValid: true,
-            tokenInfo: {
-              tokenId,
-              name: `Token ${tokenId}`,
-              symbol: "TKN",
-              decimals: 0,
-              totalSupply: 1000000,
-              isDeleted: false,
-              tokenType: "FUNGIBLE"
-            }
-          });
-        }
-        
-        return res.status(404).json({ 
-          message: "Token not found on Hedera network",
-          isValid: false
-        });
-      }
-      
-      // If we get here, token was found on Hedera network
-      return res.json({
-        isValid: true,
-        tokenInfo
+      // In production, reject unverified tokens
+      return res.status(404).json({ 
+        message: "Token not found on Hedera network",
+        isValid: false
       });
     } catch (error) {
       console.error("Token verification error:", error);
       
-      // For development, don't fail verification
+      // For development, don't fail verification on errors
       if (process.env.NODE_ENV !== 'production') {
         const { tokenId } = req.params;
         console.log("Error during verification but accepting in development mode:", tokenId);

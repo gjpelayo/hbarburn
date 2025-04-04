@@ -235,7 +235,7 @@ export class MemStorage implements IStorage {
     const shops: Shop[] = [
       {
         id: this.currentShopId++,
-        name: "Limited Edition Collection",
+        name: "War Party",
         description: "Exclusive items available for token redemption. Get them while supplies last!",
         imageUrl: "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800",
         isActive: true,
@@ -266,13 +266,14 @@ export class MemStorage implements IStorage {
       this.shops.set(shop.id, shop);
     });
     
-    // Seed tokens
+    // Seed tokens - using real Hedera token IDs
+    // Names and symbols will be verified from the Hedera network
     const tokens: Token[] = [
       {
         id: 1,
-        tokenId: "0.0.1001",
-        name: "Physical Merch Token",
-        symbol: "MERCH",
+        tokenId: "0.0.786931",
+        name: "", // Will be fetched from the Hedera network
+        symbol: "", // Will be fetched from the Hedera network
         decimals: 0,
         redemptionItem: "Limited Edition Merchandise Pack",
         createdAt: new Date().toISOString(),
@@ -280,9 +281,9 @@ export class MemStorage implements IStorage {
       },
       {
         id: 2,
-        tokenId: "0.0.1002",
-        name: "Apparel Token",
-        symbol: "APRL",
+        tokenId: "0.0.8052597",
+        name: "", // Will be fetched from the Hedera network
+        symbol: "", // Will be fetched from the Hedera network
         decimals: 0,
         redemptionItem: "Exclusive Branded Apparel",
         createdAt: new Date().toISOString(),
@@ -290,9 +291,9 @@ export class MemStorage implements IStorage {
       },
       {
         id: 3,
-        tokenId: "0.0.1003",
-        name: "Collectible Token",
-        symbol: "CLLCT",
+        tokenId: "0.0.8397255",
+        name: "", // Will be fetched from the Hedera network
+        symbol: "", // Will be fetched from the Hedera network
         decimals: 0,
         redemptionItem: "Collectible Hedera-themed Item",
         createdAt: new Date().toISOString(),
@@ -304,11 +305,11 @@ export class MemStorage implements IStorage {
       this.tokens.set(token.tokenId, token);
     });
     
-    // Seed token configurations
+    // Seed token configurations - updated with real Hedera token IDs
     const tokenConfigs: TokenConfiguration[] = [
       {
         id: this.currentTokenConfigId++,
-        tokenId: "0.0.1001",
+        tokenId: "0.0.786931",
         physicalItemId: 1, // Premium Crypto T-Shirt
         burnAmount: 10,
         isActive: true,
@@ -317,7 +318,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: this.currentTokenConfigId++,
-        tokenId: "0.0.1002",
+        tokenId: "0.0.8052597",
         physicalItemId: 2, // Blockchain Snapback Hat
         burnAmount: 5,
         isActive: true,
@@ -326,7 +327,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: this.currentTokenConfigId++,
-        tokenId: "0.0.1003",
+        tokenId: "0.0.8397255",
         physicalItemId: 3, // Hedera Hoodie
         burnAmount: 15,
         isActive: true,
@@ -335,7 +336,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: this.currentTokenConfigId++,
-        tokenId: "0.0.1001",
+        tokenId: "0.0.786931",
         physicalItemId: 4, // Limited Edition Collectible Coin
         burnAmount: 20,
         isActive: true,
@@ -348,11 +349,11 @@ export class MemStorage implements IStorage {
       this.tokenConfigurations.set(config.id, config);
     });
     
-    // Seed shop items associations - add all items to the first shop (Limited Edition Collection)
+    // Seed shop items associations - add all items to the first shop (War Party)
     for (let i = 1; i <= 4; i++) {
       const shopItem: ShopItem = {
         id: this.currentShopItemId++,
-        shopId: 1, // Limited Edition Collection
+        shopId: 1, // War Party shop
         physicalItemId: i,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
