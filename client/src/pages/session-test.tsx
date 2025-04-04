@@ -8,8 +8,22 @@ import { apiRequest } from "@/lib/queryClient";
 import { useWallet } from "@/context/WalletContext";
 
 export default function SessionTest() {
-  const { connectWallet, isConnected, accountId, authenticateWithSignature } = useWallet();
-  const { user, isLoading, isAdmin, logout } = useAuth();
+  // Get wallet functionality from context
+  const { 
+    connectWallet, 
+    isConnected, 
+    accountId, 
+    authenticateWithSignature,
+    isLoading: walletLoading
+  } = useWallet();
+  
+  // Get auth functionality from context
+  const { 
+    user, 
+    isLoading: authLoading, 
+    isAdmin, 
+    logout 
+  } = useAuth();
   const [isSigningMessage, setIsSigningMessage] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [testCookieInfo, setTestCookieInfo] = useState<any>(null);
@@ -154,7 +168,7 @@ export default function SessionTest() {
               <div className="grid gap-4">
                 <div className="flex gap-2">
                   <Button onClick={handleWalletConnect} disabled={isConnected}>
-                    {isLoading ? 'Connecting...' : isConnected ? 'Wallet Connected' : 'Connect Wallet'}
+                    {walletLoading ? 'Connecting...' : isConnected ? 'Wallet Connected' : 'Connect Wallet'}
                   </Button>
                   
                   <Button 
