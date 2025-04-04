@@ -33,11 +33,14 @@ async function comparePasswords(supplied: string, stored: string | null) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
-    resave: false,
+    resave: true, // Changed to true to ensure session is saved
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // only use secure in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // allow cross-site cookies in production
     }
   };
 
@@ -120,7 +123,7 @@ export function setupAuth(app: Express) {
         if (err) {
           console.error("Error logging in with passport from admin/user endpoint:", err);
         } else {
-          console.log('Successfully logged in user from session to passport:', req.session.user.id);
+          console.log('Successfully logged in user from session to passport:', req.session.user?.id);
         }
       });
     }

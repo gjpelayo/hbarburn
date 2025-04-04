@@ -113,6 +113,15 @@ export default function Home() {
               {user ? "Manage My Shop" : "Setup Shop"}
             </Button>
             
+            <Button
+              variant="outline"
+              onClick={() => navigate("/session-test")}
+              size="lg"
+              className="px-8 gap-2"
+            >
+              Session Test
+            </Button>
+            
             {/* Wallet Connection Dialog */}
             <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
               <DialogContent className="sm:max-w-md">

@@ -196,6 +196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Signature-based authentication route
   app.post("/api/auth/signature", async (req, res) => {
     try {
+      console.log("=== BEGIN SIGNATURE AUTHENTICATION ===");
+      console.log("Request body:", req.body);
+      console.log("Session before authentication:", req.session);
+      console.log("Is authenticated before:", req.isAuthenticated());
+      
       const { accountId, message, signature } = signatureAuthSchema.parse(req.body);
       
       // Verify the signature is valid for the message and accountId
@@ -212,18 +217,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isValid = true; // TEMPORARY! Replace with actual verification
       
       if (!isValid) {
+        console.log("Signature validation failed");
         return res.status(401).json({ 
           success: false, 
           error: "Invalid signature"
         });
       }
       
+      console.log("Signature validation passed, creating user");
+      
       // Create or get a user based on the wallet's account ID
       const user = await storage.createOrGetWalletUser(accountId);
+      console.log("User created/retrieved:", user);
       
       // Store user in session
       req.session.user = user;
       req.session.isLoggedIn = true;
+      
+      console.log("Session updated with user:", req.session);
       
       // Save the session first to ensure it's stored before passport login
       req.session.save((err) => {
@@ -234,6 +245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             error: "Session save failed" 
           });
         }
+        
+        console.log("Session saved successfully");
         
         // Then login with passport
         req.login(user, (err) => {
@@ -246,8 +259,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           console.log("Successfully authenticated user via signature:", user.id, user.accountId);
+          console.log("Is authenticated after:", req.isAuthenticated());
+          console.log("Session after full authentication:", req.session);
+          
+          // Set a specific cookie to test cookie functionality
+          res.cookie('auth_test', 'signature_auth_success', {
+            maxAge: 24 * 60 * 60 * 1000, // 1 day
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          });
           
           // Return success response
+          console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
           return res.json({ 
             success: true,
             accountId: user.accountId
@@ -339,6 +363,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Don't return password in response
     const { password: _, ...userWithoutPassword } = req.session.user;
     res.json(userWithoutPassword);
+  });
+  
+  // Session status endpoint for debugging
+  app.get("/api/auth/session-status", (req, res) => {
+    console.log("=== SESSION STATUS CHECK ===");
+    console.log("Request cookies:", req.cookies);
+    console.log("Session data:", req.session);
+    console.log("Is authenticated:", req.isAuthenticated());
+    console.log("User in session:", req.session.user);
+    console.log("User in passport:", req.user);
+    
+    // Return session info (sanitized)
+    res.json({
+      authenticated: req.isAuthenticated(),
+      hasSessionUser: !!req.session.user,
+      sessionID: req.sessionID,
+      userID: req.user?.id || req.session.user?.id,
+      accountId: req.user?.accountId || req.session.user?.accountId,
+    });
+  });
+  
+  // Endpoint to create a test cookie and verify it works
+  app.get("/api/auth/test-cookie", (req, res) => {
+    console.log("=== SETTING TEST COOKIE ===");
+    
+    // Set a test cookie
+    res.cookie("test_cookie", "hello_from_server", {
+      maxAge: 3600000, // 1 hour
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
+    
+    // Check if we received any cookies
+    console.log("Cookies received:", req.cookies);
+    
+    // Return success
+    res.json({ 
+      success: true,
+      message: "Test cookie set",
+      cookieOptions: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      }
+    });
+  });
+  
+  // Endpoint to check if a test cookie exists
+  app.get("/api/auth/check-test-cookie", (req, res) => {
+    console.log("=== CHECKING TEST COOKIE ===");
+    console.log("Cookies received:", req.cookies);
+    
+    const testCookie = req.cookies?.test_cookie;
+    
+    res.json({
+      cookieExists: !!testCookie,
+      cookieValue: testCookie || null,
+      allCookies: req.cookies,
+    });
   });
   
   // Register route (for development - in production would require an admin to create users)
