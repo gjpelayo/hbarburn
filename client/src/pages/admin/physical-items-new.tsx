@@ -12,7 +12,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useAutoDismissToast } from "@/hooks/use-auto-dismiss-toast";
 import { Package, PencilIcon, Trash2Icon, PlusIcon, Loader2, CheckCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
@@ -42,7 +42,7 @@ const physicalItemFormSchema = z.object({
 type PhysicalItemFormValues = z.infer<typeof physicalItemFormSchema>;
 
 export default function PhysicalItemsNewPage() {
-  const { toast } = useToast();
+  const { autoDismissToast } = useAutoDismissToast();
   const { 
     createPhysicalItemMutation, 
     updatePhysicalItemMutation, 
@@ -131,7 +131,7 @@ export default function PhysicalItemsNewPage() {
     try {
       // Validate token is selected
       if (!values.tokenId || values.tokenId.trim() === "") {
-        toast({
+        autoDismissToast({
           title: "Token required",
           description: "You must select a token requirement for this item",
           variant: "destructive",
@@ -163,12 +163,12 @@ export default function PhysicalItemsNewPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
       
-      toast({
+      autoDismissToast({
         title: "Physical item created",
         description: "The physical item has been created successfully.",
       });
     } catch (error: any) {
-      toast({
+      autoDismissToast({
         title: "Error creating physical item",
         description: error.message,
         variant: "destructive",
@@ -183,7 +183,7 @@ export default function PhysicalItemsNewPage() {
     try {
       // Validate token is selected
       if (!values.tokenId || values.tokenId.trim() === "") {
-        toast({
+        autoDismissToast({
           title: "Token required",
           description: "You must select a token requirement for this item",
           variant: "destructive",
@@ -233,12 +233,12 @@ export default function PhysicalItemsNewPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
       
-      toast({
+      autoDismissToast({
         title: "Physical item updated",
         description: "The physical item has been updated successfully.",
       });
     } catch (error: any) {
-      toast({
+      autoDismissToast({
         title: "Error updating physical item",
         description: error.message,
         variant: "destructive",
@@ -257,12 +257,12 @@ export default function PhysicalItemsNewPage() {
       // Update the query cache 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
       
-      toast({
+      autoDismissToast({
         title: "Physical item deleted",
         description: "The physical item has been deleted successfully.",
       });
     } catch (error: any) {
-      toast({
+      autoDismissToast({
         title: "Error deleting physical item",
         description: error.message,
         variant: "destructive",
