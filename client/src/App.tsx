@@ -14,6 +14,7 @@ import Shop from "@/pages/shop-fixed";
 import OrderTrackingPage from "@/pages/order-tracking";
 import AuthPage from "@/pages/auth-page";
 import SessionTest from "@/pages/session-test";
+import SimpleSessionTest from "@/pages/simple-session-test";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/track" component={OrderTrackingPage} />
       <Route path="/track/:orderId" component={OrderTrackingPage} />
       <Route path="/session-test" component={SessionTest} />
+      <Route path="/simple-session-test" component={SimpleSessionTest} />
       
       {/* Admin Routes - All protected by ProtectedRoute component */}
       <Route path="/admin">
