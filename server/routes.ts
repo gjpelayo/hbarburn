@@ -501,6 +501,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Test endpoint to force session sync
+  app.get("/api/auth/force-sync", (req, res) => {
+    console.log("=== FORCE SESSION SYNC ===");
+    console.log("- Before sync - Session has user:", !!req.session.user);
+    console.log("- Before sync - Session isLoggedIn:", req.session.isLoggedIn);
+    console.log("- Before sync - Passport has user:", req.isAuthenticated());
+    
+    let syncAction = "none";
+    
+    if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
+      // Case 1: Passport has user but session doesn't - sync to session
+      req.session.user = req.user;
+      req.session.isLoggedIn = true;
+      
+      syncAction = "passport-to-session";
+      req.session.save(err => {
+        if (err) console.error("Error saving session:", err);
+      });
+    } 
+    else if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
+      // Case 2: Session has user but passport doesn't - sync to passport
+      syncAction = "session-to-passport";
+      req.login(req.session.user, err => {
+        if (err) console.error("Error logging in with passport:", err);
+      });
+    }
+    
+    // Return updated status
+    res.json({
+      syncAction,
+      afterSync: {
+        sessionHasUser: !!req.session.user,
+        sessionIsLoggedIn: req.session.isLoggedIn,
+        passportHasUser: req.isAuthenticated(),
+        sessionID: req.sessionID
+      }
+    });
+  });
+  
+  // Enhanced debug endpoint to create a test user and login
+  app.get("/api/auth/test-login", async (req, res) => {
+    console.log("=== TEST LOGIN ENDPOINT ===");
+    
+    try {
+      // Create a demo user
+      const testUser = await storage.createOrGetWalletUser("0.0.12345");
+      console.log("Created test user:", testUser);
+      
+      // Setup session with user data
+      req.session.user = testUser;
+      req.session.isLoggedIn = true;
+      
+      // Save session first to ensure it's persisted properly
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("❌ Session save error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Session saved successfully");
+            resolve();
+          }
+        });
+      });
+      
+      // Then use Passport's login method to establish authentication
+      await new Promise<void>((resolve, reject) => {
+        req.login(testUser, (err) => {
+          if (err) {
+            console.error("❌ Passport login error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Passport login successful");
+            resolve();
+          }
+        });
+      });
+      
+      // Check authentication status after login attempt
+      console.log("=== TEST LOGIN RESULT ===");
+      console.log("- Session ID:", req.sessionID);
+      console.log("- Authenticated:", req.isAuthenticated());
+      console.log("- Session user:", req.session.user?.id);
+      console.log("- Passport user:", req.user?.id);
+      
+      res.json({
+        success: true,
+        user: {
+          id: testUser.id,
+          username: testUser.username,
+          accountId: testUser.accountId
+        },
+        sessionID: req.sessionID,
+        isAuthenticated: req.isAuthenticated(),
+        userInSession: !!req.session.user,
+        userInPassport: !!req.user
+      });
+    } catch (error) {
+      console.error("Test login failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // Register route (for development - in production would require an admin to create users)
   app.post("/api/auth/register", async (req, res) => {
     try {
