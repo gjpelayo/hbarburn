@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useAdmin } from "@/hooks/use-admin";
 import { Loader2 } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
@@ -11,8 +12,15 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [, navigate] = useLocation();
-  const { user, isLoading } = useAdmin();
+  const adminContext = useAdmin();
+  const authContext = useAuth();
   const { isConnected } = useWallet();
+  
+  // Use both contexts - the old one (useAdmin) and the new one (useAuth)
+  // This ensures backward compatibility while we transition
+  const user = authContext.user || adminContext.user;
+  const isLoading = authContext.isLoading || adminContext.isLoading;
+  const isAdmin = authContext.isAdmin || (adminContext.user?.isAdmin || false);
   
   // Use effects for all navigation to avoid conditional hook issues
   useEffect(() => {
@@ -42,7 +50,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
   
   // If no user found or not an admin, display access denied message
-  if (!user || !user.isAdmin) {
+  if (!user || !isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen max-w-md mx-auto text-center px-4">
         <h1 className="text-2xl font-bold mb-4">Admin Access Required</h1>

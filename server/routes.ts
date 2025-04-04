@@ -1841,6 +1841,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Session Testing Endpoints
+  app.get("/api/auth/session-status", (req, res) => {
+    console.log('---SESSION STATUS REQUEST---');
+    console.log('Session:', req.session);
+    console.log('Is authenticated:', req.isAuthenticated());
+    console.log('User in session:', req.session.user);
+    console.log('User in passport:', req.user);
+    console.log('Cookies:', req.cookies);
+    console.log('Headers:', req.headers);
+    
+    res.json({
+      authenticated: req.isAuthenticated(),
+      sessionID: req.sessionID,
+      userID: req.user?.id || req.session.user?.id,
+      accountId: req.user?.accountId || req.session.user?.accountId,
+      sessionData: {
+        cookie: req.session.cookie,
+        user: req.session.user ? {
+          id: req.session.user.id,
+          username: req.session.user.username,
+          accountId: req.session.user.accountId,
+          isAdmin: req.session.user.isAdmin
+        } : null
+      }
+    });
+  });
+
+  app.get("/api/auth/test-cookie", (req, res) => {
+    console.log('---SETTING TEST COOKIE---');
+    // Set a test cookie with secure options matching our session cookie settings
+    res.cookie('test_cookie', 'test_value_' + Date.now(), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 3600000 // 1 hour
+    });
+    console.log('Headers being sent:', res.getHeaders());
+    res.json({ message: "Test cookie set successfully" });
+  });
+
+  app.get("/api/auth/check-test-cookie", (req, res) => {
+    console.log('---CHECKING TEST COOKIE---');
+    console.log('Cookies received:', req.cookies);
+    console.log('Signed cookies:', req.signedCookies);
+    console.log('Headers:', req.headers);
+    
+    const cookieValue = req.cookies.test_cookie;
+    res.json({
+      cookieExists: !!cookieValue,
+      cookieValue: cookieValue || null,
+      allCookies: req.cookies
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

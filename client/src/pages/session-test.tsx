@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SessionTest() {
   const { toast } = useToast();
+  const { user, isAdmin, checkSessionStatus } = useAuth();
   const [sessionStatus, setSessionStatus] = useState<any>(null);
   const [cookieTest, setCookieTest] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -87,11 +89,59 @@ export default function SessionTest() {
     console.log('Document cookies:', document.cookie);
   }, []);
 
+  // Function to use the built-in check session status from AuthContext
+  const refreshSessionStatus = async () => {
+    setLoading(true);
+    try {
+      const data = await checkSessionStatus();
+      setSessionStatus(data);
+      toast({
+        title: 'Session Status Refreshed via Hook',
+        description: `Authenticated: ${data?.authenticated}`,
+      });
+    } catch (error) {
+      console.error('Error refreshing session via hook:', error);
+      toast({
+        title: 'Error Refreshing Session',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container py-10">
       <h1 className="text-3xl font-bold mb-6">Session & Cookie Test Page</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Auth Context</CardTitle>
+            <CardDescription>Current authentication state from the AuthContext</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><strong>User Present:</strong> {user ? 'Yes' : 'No'}</p>
+              {user && (
+                <>
+                  <p><strong>User ID:</strong> {user.id}</p>
+                  <p><strong>Username:</strong> {user.username}</p>
+                  <p><strong>Account ID:</strong> {user.accountId || 'Not set'}</p>
+                  <p><strong>Is Admin:</strong> {isAdmin ? 'Yes' : 'No'}</p>
+                  <p><strong>Created At:</strong> {new Date(user.createdAt).toLocaleString()}</p>
+                </>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={refreshSessionStatus} disabled={loading}>
+              {loading ? 'Refreshing...' : 'Refresh Session via Hook'}
+            </Button>
+          </CardFooter>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Session Status</CardTitle>
@@ -162,6 +212,10 @@ export default function SessionTest() {
         <div className="bg-muted p-4 rounded-md">
           <pre className="text-xs overflow-auto">
             {JSON.stringify({
+              authContext: {
+                user,
+                isAdmin,
+              },
               sessionStatus,
               cookieTest,
               documentCookies: document.cookie,

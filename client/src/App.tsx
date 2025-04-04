@@ -6,6 +6,7 @@ import { WalletContextProvider } from "./context/WalletContext";
 import { RedemptionContextProvider } from "./context/RedemptionContext";
 import { AdminProvider } from "./hooks/use-admin";
 import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -139,10 +140,12 @@ function App() {
       <AdminProvider>
         <ThemeProvider>
           <WalletContextProvider>
-            <RedemptionContextProvider>
-              <Router />
-              <Toaster />
-            </RedemptionContextProvider>
+            <AuthProvider>
+              <RedemptionContextProvider>
+                <Router />
+                <Toaster />
+              </RedemptionContextProvider>
+            </AuthProvider>
           </WalletContextProvider>
         </ThemeProvider>
       </AdminProvider>

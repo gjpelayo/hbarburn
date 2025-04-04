@@ -7,11 +7,18 @@ import cookieParser from "cookie-parser";
 const app = express();
 
 // Configure CORS to work with credentials
+// Set 'trust proxy' at the top level before any middleware
+app.set("trust proxy", 1);
+
 app.use(cors({
-  origin: true, // Allow all origins with credentials; the browser will enforce CORS based on request headers
+  origin: function(origin, callback) {
+    // Allow any origin (the browser will enforce CORS)
+    callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['set-cookie'],
 }));
 
 // Parse cookies
