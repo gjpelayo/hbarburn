@@ -8,9 +8,7 @@ const app = express();
 
 // Configure CORS to work with credentials
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [/\.replit\.app$/, /^https:\/\/[a-z0-9-]+\.repl\.co$/] 
-    : ['http://localhost:5000'],
+  origin: true, // Allow all origins with credentials; the browser will enforce CORS based on request headers
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

@@ -61,13 +61,13 @@ export default function Home() {
   };
   
   // Handler functions for wallet connection
-  const handleConnectHashpack = async () => {
+  const handleConnectWalletConnect = async () => {
     try {
-      await connectWallet("hashpack");
+      await connectWallet("walletconnect");
       setIsConnectDialogOpen(false);
       navigate("/admin");
     } catch (error) {
-      console.error("Error connecting HashPack wallet:", error);
+      console.error("Error connecting WalletConnect:", error);
     }
   };
   
@@ -133,7 +133,7 @@ export default function Home() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <Button 
-                    onClick={handleConnectHashpack}
+                    onClick={handleConnectWalletConnect}
                     className="w-full flex justify-center items-center gap-2"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -143,7 +143,7 @@ export default function Home() {
                       <path d="M7 17h.01" />
                       <path d="M17 17h.01" />
                     </svg>
-                    Connect with HashPack
+                    Connect with WalletConnect
                   </Button>
                   <Button 
                     onClick={handleConnectBlade}

@@ -31,20 +31,20 @@ async function comparePasswords(supplied: string, stored: string | null) {
 }
 
 export function setupAuth(app: Express) {
+  app.set("trust proxy", 1);
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
-    resave: true, // Changed to true to ensure session is saved
+    resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
     cookie: {
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // only use secure in production
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // allow cross-site cookies in production
-    }
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 604800000 // 1 week in milliseconds
+    },
+    store: storage.sessionStore
   };
-
-  app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
