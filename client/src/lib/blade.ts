@@ -1,6 +1,13 @@
 import { TokenId, TokenBurnTransaction } from '@hashgraph/sdk';
 import { client, initializeClient } from './hedera';
 
+// Define response interface for better type safety
+interface BladeResponse {
+  success: boolean;
+  accountId?: string;
+  error?: string;
+}
+
 // Mock type for BladeConnector
 type BladeConnector = any;
 
@@ -11,11 +18,19 @@ const state = {
 };
 
 // Connect to Blade Wallet (mockup)
-export async function connectBlade() {
+export async function connectBlade(): Promise<BladeResponse> {
   try {
-    // For development, just simulate connecting
-    // In a real implementation, this would handle the connection process
+    // In development, this would normally connect to the Blade wallet
+    // But since we're building a test/demo, we'll simulate an error
+    // to prevent automatic connection that's causing confusion
+    console.error("Blade wallet integration not yet available");
     
+    return {
+      success: false,
+      error: "Blade wallet integration not yet available. Please use WalletConnect instead."
+    };
+    
+    /* UNCOMMENT THIS FOR ACTUAL BLADE INTEGRATION
     // Demo account ID for development
     const demoAccountId = "0.0.654321";
     
@@ -28,6 +43,7 @@ export async function connectBlade() {
       success: true,
       accountId: demoAccountId
     };
+    */
   } catch (error) {
     console.error("Blade connection error:", error);
     return {

@@ -11,6 +11,13 @@ const PROJECT_ID = "1e30abcb50dc0a3eb2c7bc0f9cf7f25c";
 // For development testing purposes, use a mock account
 const MOCK_TEST_ACCOUNT = "0.0.654321";
 
+// Define response interface for better type safety
+interface WalletConnectResponse {
+  success: boolean;
+  accountId?: string;
+  error?: string;
+}
+
 // Create state management
 const state = {
   signClient: null as SignClient | null,
@@ -94,7 +101,7 @@ export async function initializeWalletConnect(): Promise<void> {
   }
 }
 
-export async function connectWalletConnect() {
+export async function connectWalletConnect(): Promise<WalletConnectResponse> {
   try {
     if (!state.signClient) {
       await initializeWalletConnect();
@@ -111,7 +118,7 @@ export async function connectWalletConnect() {
       };
     }
 
-    // FOR DEVELOPMENT ONLY:
+    /* FOR DEVELOPMENT TESTING ONLY - DISABLED FOR NOW
     // Use a mock account for development testing since we're not fully connecting to a
     // real wallet yet. In production, this would be the actual account from WalletConnect.
     console.log("Using test account for development:", MOCK_TEST_ACCOUNT);
@@ -122,6 +129,15 @@ export async function connectWalletConnect() {
     return {
       success: true,
       accountId: MOCK_TEST_ACCOUNT,
+    };
+    */
+
+    // Simulate WalletConnect error for demo
+    console.error("WalletConnect connection error: Not fully implemented in demo");
+    
+    return {
+      success: false,
+      error: "WalletConnect integration is not fully implemented in this demo. Please refer to Hedera docs for production implementation.",
     };
 
     /* UNCOMMENT THIS FOR PRODUCTION USE WITH ACTUAL WALLET CONNECTION
