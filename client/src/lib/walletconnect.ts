@@ -5,8 +5,11 @@ import { TokenBurnTransaction, TokenId, AccountId } from '@hashgraph/sdk';
 import { initializeClient, client } from './hedera';
 
 // Define a project ID from WalletConnect Dashboard
-// You should get this from WalletConnect Dashboard
+// Get a real project ID from https://cloud.walletconnect.com/ 
 const PROJECT_ID = "1e30abcb50dc0a3eb2c7bc0f9cf7f25c";
+
+// For development testing purposes, use a mock account
+const MOCK_TEST_ACCOUNT = "0.0.654321";
 
 // Create state management
 const state = {
@@ -61,7 +64,7 @@ export async function initializeWalletConnect(): Promise<void> {
           .filter(address => address.startsWith(state.chainId));
           
         if (accountAddresses.length > 0) {
-          // Extract Hedera account ID from the address format: hedera:mainnet:0.0.12345
+          // Extract Hedera account ID from the address format: hedera:testnet:0.0.12345
           const accountAddress = accountAddresses[0];
           const accountId = accountAddress.split(':')[2];
           state.accountId = accountId;
@@ -108,6 +111,20 @@ export async function connectWalletConnect() {
       };
     }
 
+    // FOR DEVELOPMENT ONLY:
+    // Use a mock account for development testing since we're not fully connecting to a
+    // real wallet yet. In production, this would be the actual account from WalletConnect.
+    console.log("Using test account for development:", MOCK_TEST_ACCOUNT);
+    state.accountId = MOCK_TEST_ACCOUNT;
+    state.isConnected = true;
+    localStorage.setItem("walletconnect_account", MOCK_TEST_ACCOUNT);
+    
+    return {
+      success: true,
+      accountId: MOCK_TEST_ACCOUNT,
+    };
+
+    /* UNCOMMENT THIS FOR PRODUCTION USE WITH ACTUAL WALLET CONNECTION
     console.log("Connecting to WalletConnect...");
     
     // Prepare connection parameters
@@ -143,7 +160,7 @@ export async function connectWalletConnect() {
       throw new Error("No Hedera accounts found in session");
     }
     
-    // Extract Hedera account ID from the address format: hedera:mainnet:0.0.12345
+    // Extract Hedera account ID from the address format: hedera:testnet:0.0.12345
     const accountAddress = accountAddresses[0];
     const accountId = accountAddress.split(':')[2];
     
@@ -158,6 +175,7 @@ export async function connectWalletConnect() {
       success: true,
       accountId: accountId,
     };
+    */
   } catch (error) {
     console.error("WalletConnect connection error:", error);
     QRCodeModal.close();
@@ -170,6 +188,15 @@ export async function connectWalletConnect() {
 
 export async function disconnectWalletConnect() {
   try {
+    // FOR DEVELOPMENT:
+    // Just clear the local state
+    state.session = null;
+    state.accountId = null;
+    state.isConnected = false;
+    localStorage.removeItem("walletconnect_account");
+    return true;
+
+    /* UNCOMMENT THIS FOR PRODUCTION
     if (!state.session || !state.signClient) {
       console.log("No active WalletConnect session to disconnect");
       
@@ -199,6 +226,7 @@ export async function disconnectWalletConnect() {
     
     console.log("Disconnected from WalletConnect");
     return true;
+    */
   } catch (error) {
     console.error("WalletConnect disconnection error:", error);
     throw error;
@@ -207,28 +235,48 @@ export async function disconnectWalletConnect() {
 
 export async function burnTokensWithWalletConnect(tokenId: string, amount: number): Promise<string> {
   try {
-    if (!state.isConnected || !state.accountId || !state.session || !state.signClient) {
+    if (!state.isConnected || !state.accountId) {
       throw new Error("Not connected to WalletConnect");
     }
     
     // Get account ID
     const accountId = state.accountId;
     
+    console.log(`Burning ${amount} of token ${tokenId} from account ${accountId}`);
+    
+    // For development purposes only: simulate a transaction ID
+    const mockTransactionId = `${accountId}@${Math.floor(Date.now() / 1000)}`;
+    return mockTransactionId;
+    
+    /* UNCOMMENT THIS FOR PRODUCTION
     // Create the burn transaction
     const tokenBurn = new TokenBurnTransaction()
       .setTokenId(TokenId.fromString(tokenId))
       .setAmount(amount);
     
-    // In a real implementation, we would:
+    // In a real implementation:
     // 1. Freeze the transaction
+    // const freezeTx = await tokenBurn
+    //   .freezeWith(client);
+    //
     // 2. Convert to bytes
+    // const freezeTxBytes = freezeTx.toBytes();
+    //
     // 3. Send to wallet for signing via WalletConnect
-    // 4. Receive signed transaction
-    // 5. Execute it on the network
-    
-    // For the purpose of demonstration during development:
-    const mockTransactionId = `${accountId}@${Math.floor(Date.now() / 1000)}`;
-    return mockTransactionId;
+    // const result = await state.signClient.request({
+    //   topic: state.session.topic,
+    //   chainId: state.chainId,
+    //   request: {
+    //     method: "hedera_signAndExecuteTransaction",
+    //     params: {
+    //       transaction: freezeTxBytes.toString('hex')
+    //     }
+    //   }
+    // });
+    //
+    // 4. Get transaction ID from result
+    // return result.transaction_id;
+    */
   } catch (error) {
     console.error("WalletConnect burn transaction error:", error);
     throw error;
