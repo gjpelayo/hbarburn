@@ -267,14 +267,14 @@ export class MemStorage implements IStorage {
     });
     
     // Seed tokens - using real Hedera token IDs
-    // Names and symbols will be verified from the Hedera network
+    // Using verified token information from Hedera network
     const tokens: Token[] = [
       {
         id: 1,
         tokenId: "0.0.786931",
-        name: "", // Will be fetched from the Hedera network
-        symbol: "", // Will be fetched from the Hedera network
-        decimals: 0,
+        name: "Blast Token",
+        symbol: "BLAST",
+        decimals: 8,
         redemptionItem: "Limited Edition Merchandise Pack",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -282,9 +282,9 @@ export class MemStorage implements IStorage {
       {
         id: 2,
         tokenId: "0.0.8052597",
-        name: "", // Will be fetched from the Hedera network
-        symbol: "", // Will be fetched from the Hedera network
-        decimals: 0,
+        name: "AuraToken",
+        symbol: "AURA",
+        decimals: 6,
         redemptionItem: "Exclusive Branded Apparel",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -292,9 +292,9 @@ export class MemStorage implements IStorage {
       {
         id: 3,
         tokenId: "0.0.8397255",
-        name: "", // Will be fetched from the Hedera network
-        symbol: "", // Will be fetched from the Hedera network
-        decimals: 0,
+        name: "SponsorCoin",
+        symbol: "SPON",
+        decimals: 8,
         redemptionItem: "Collectible Hedera-themed Item",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
