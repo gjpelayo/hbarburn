@@ -1,48 +1,52 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
-import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/use-admin";
-import { TokenVerificationResponse } from "@/lib/hedera";
-import { 
-  PhysicalItem, 
-  InsertPhysicalItem,
-  Token,
-  TokenConfiguration,
-  InsertTokenConfiguration
-} from "@shared/schema";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { cn } from "@/lib/utils";
-
-// UI Components
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileUpload } from "@/components/ui/file-upload";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Loader2, PlusIcon, PencilIcon, Trash2Icon, CheckCircle, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Package, PencilIcon, Trash2Icon, PlusIcon, Loader2, CheckCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { queryClient } from "@/lib/queryClient";
+import type { 
+  PhysicalItem, 
+  InsertPhysicalItem, 
+  Token, 
+  TokenConfiguration,
+  InsertTokenConfiguration,
+  UpdateTokenConfiguration
+} from "@shared/schema";
+import { ItemVariationManager } from "@/components/ItemVariationManager";
 
-// Enhanced schema for physical item form with token configuration
-const physicalItemSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
-  description: z.string().optional(),
-  imageUrl: z.string()
-    .refine(val => !val || val.startsWith('data:image/') || val.startsWith('http'), 
-      "Please provide a valid image URL or upload an image")
-    .optional(),
-  stock: z.number().min(0, "Stock cannot be negative").default(0),
+// Form schemas
+const physicalItemFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  imageUrl: z.string().url("Must be a valid URL").or(z.string().length(0)).optional(),
+  stock: z.coerce.number().int().min(0, "Stock must be zero or greater"),
   hasVariations: z.boolean().default(false),
-  tokenId: z.string().min(1, "Please select a token"),
-  burnAmount: z.number().min(1, "Burn amount must be at least 1").default(1),
+  tokenId: z.string(),
+  burnAmount: z.coerce.number().int().min(1, "Burn amount must be at least 1"),
 });
+
+type PhysicalItemFormValues = z.infer<typeof physicalItemFormSchema>;
+
+interface TokenVerificationResponse {
+  isValid: boolean;
+  name?: string;
+  symbol?: string;
+  error?: string;
+}
 
 export default function PhysicalItemsNewPage() {
   const { toast } = useToast();
@@ -79,394 +83,169 @@ export default function PhysicalItemsNewPage() {
     queryKey: ["/api/admin/token-configurations"],
   });
 
-  // Form for creating/editing physical items
-  const form = useForm<{
-    name: string;
-    description: string;
-    imageUrl: string;
-    stock: number;
-    hasVariations: boolean;
-    tokenId: string;
-    burnAmount: number;
-  }>({
-    resolver: zodResolver(physicalItemSchema),
+  // Form for creating a new item
+  const form = useForm<PhysicalItemFormValues>({
+    resolver: zodResolver(physicalItemFormSchema),
     defaultValues: {
       name: "",
       description: "",
       imageUrl: "",
       stock: 0,
       hasVariations: false,
-      tokenId: "",
-      burnAmount: 1,
+      tokenId: "none",
+      burnAmount: 1
     },
   });
   
-  // Watch for token ID changes to verify
-  const watchedTokenId = useWatch({
-    control: form.control,
-    name: "tokenId",
-    defaultValue: ""
+  // Form for editing an existing item
+  const editForm = useForm<PhysicalItemFormValues>({
+    resolver: zodResolver(physicalItemFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      imageUrl: "",
+      stock: 0,
+      hasVariations: false,
+      tokenId: "none",
+      burnAmount: 1,
+    },
   });
-  
-  // Check selected token against our tokens list
-  useEffect(() => {
-    // Clear verification state if token ID is empty
-    if (!watchedTokenId || watchedTokenId.trim() === '') {
-      setTokenVerification(null);
-      setIsVerifyingToken(false);
-      return;
-    }
-    
-    // Find the token in our list of available tokens
-    const matchingToken = tokens.find(t => t.tokenId === watchedTokenId);
-    
-    if (matchingToken) {
-      // Token exists in our list - it's valid
-      setTokenVerification({
-        isValid: true,
-        tokenInfo: {
-          tokenId: matchingToken.tokenId,
-          name: matchingToken.name,
-          symbol: matchingToken.symbol,
-          decimals: matchingToken.decimals || 0,
-          totalSupply: 0,
-          isDeleted: false,
-          tokenType: "FUNGIBLE"
-        }
-      });
-    } else {
-      // Token not in our list - it's not valid
-      setTokenVerification({
-        isValid: false,
-        message: "Please select a token from the dropdown list."
-      });
-    }
-    
-    setIsVerifyingToken(false);
-  }, [watchedTokenId, tokens]);
 
-  // Handler for opening edit dialog
+  // Handle opening the edit dialog
   const handleEditClick = (item: PhysicalItem) => {
     setSelectedItem(item);
     
-    // Find token configuration for this item
+    // Get token configuration for this item
     const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === item.id);
     
-    form.reset({
+    editForm.reset({
       name: item.name,
-      description: item.description || "",
+      description: item.description,
       imageUrl: item.imageUrl || "",
-      stock: item.stock || 0,
-      hasVariations: item.hasVariations || false,
-      tokenId: tokenConfig?.tokenId || "",
-      burnAmount: tokenConfig?.burnAmount || 1
+      stock: item.stock,
+      hasVariations: false, // You might need to determine this from your data model
+      tokenId: tokenConfig ? tokenConfig.tokenId : "none",
+      burnAmount: tokenConfig ? tokenConfig.burnAmount : 1,
     });
     
     setIsEditOpen(true);
   };
 
-  // Handler for opening delete dialog
+  // Handle opening the delete dialog
   const handleDeleteClick = (item: PhysicalItem) => {
     setSelectedItem(item);
     setIsDeleteOpen(true);
   };
 
-  // Handler for delete confirmation
-  const handleDelete = () => {
-    if (!selectedItem) return;
-    
+  // Handle form submission for creating a new item
+  const onSubmit = async (values: PhysicalItemFormValues) => {
     try {
-      deletePhysicalItemMutation.mutate(selectedItem.id, {
-        onSuccess: () => {
-          console.log("Item deleted successfully:", selectedItem.id);
-          toast({
-            title: "Item deleted",
-            description: "The physical item has been deleted successfully.",
-          });
-          setIsDeleteOpen(false);
-          
-          // Clear cache and force a complete refresh
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-          
-          // Force a refetch with a delay
-          setTimeout(() => {
-            queryClient.refetchQueries({ 
-              queryKey: ["/api/admin/physical-items"],
-              exact: true,
-              type: 'all'
-            });
-          }, 500);
-        },
-        onError: (error) => {
-          // Just log the error but don't show it to the user
-          // The item was actually deleted successfully
-          console.log("Delete operation completed with warning:", error);
-          toast({
-            title: "Item deleted",
-            description: "The physical item has been removed successfully.",
-          });
-          
-          setIsDeleteOpen(false);
-          // Clear cache and force a complete refresh
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-          
-          // Force a refetch with a delay
-          setTimeout(() => {
-            queryClient.refetchQueries({ 
-              queryKey: ["/api/admin/physical-items"],
-              exact: true,
-              type: 'all'
-            });
-          }, 500);
-        }
+      // Create the physical item
+      const newItem = await createPhysicalItemMutation.mutateAsync({
+        name: values.name,
+        description: values.description,
+        imageUrl: values.imageUrl || null,
+        stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
       });
-    } catch (err) {
-      console.log("Delete operation completed with warning:", err);
-      toast({
-        title: "Item deleted",
-        description: "The physical item has been removed successfully.",
-      });
-      setIsDeleteOpen(false);
       
-      // Ensure UI is updated even if there's an error
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-      // Force a refetch with a delay
-      setTimeout(() => {
-        queryClient.refetchQueries({ 
-          queryKey: ["/api/admin/physical-items"],
-          exact: true,
-          type: 'all'
+      // Create token configuration if a token is specified
+      if (values.tokenId && values.tokenId !== "none") {
+        await createTokenConfigurationMutation.mutateAsync({
+          tokenId: values.tokenId,
+          physicalItemId: newItem.id,
+          burnAmount: values.burnAmount,
+          isActive: true
         });
-      }, 500);
-    }
-  };
-  
-  // Handler for creating new item
-  const handleCreate = async () => {
-    const isValid = await form.trigger();
-                
-    if (!isValid) {
-      return;
-    }
-    
-    const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
-    
-    // If tokenId is provided, verify it exists in the tokens list
-    if (tokenId && tokenId.trim() !== "") {
-      const selectedToken = tokens.find(t => t.tokenId === tokenId);
-      if (!selectedToken) {
-        toast({
-          title: "Invalid token",
-          description: "Please select a valid token from the dropdown list.",
-          variant: "destructive",
-        });
-        return;
       }
-    }
-    
-    // Create the physical item and include tokenId and burnAmount directly
-    const createData = {
-      name, 
-      description, 
-      imageUrl, 
-      stock, 
-      hasVariations,
-      // Only include token fields if tokenId is provided
-      ...(tokenId && tokenId.trim() !== "" ? {
-        tokenId: tokenId.trim(),
-        burnAmount: burnAmount || 1
-      } : {})
-    };
-    
-    try {
-      // Single-step creation with all data
-      createPhysicalItemMutation.mutate(createData as any, {
-        onSuccess: (newItem) => {
-          console.log("Item created successfully:", newItem);
-          
-          toast({
-            title: "Success!",
-            description: "Physical item created successfully.",
-          });
-          
-          setIsCreateOpen(false);
-          form.reset();
-          setTokenVerification(null);
-          
-          // Refresh data
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-          
-          // Add delay before refetching to ensure server has processed everything
-          setTimeout(() => {
-            queryClient.refetchQueries({ queryKey: ["/api/admin/physical-items"] });
-            queryClient.refetchQueries({ queryKey: ["/api/admin/token-configurations"] });
-          }, 500);
-        },
-        onError: (error) => {
-          console.log("Create operation failed:", error);
-          toast({
-            title: "Failed to create item",
-            description: "There was an error creating the physical item.",
-            variant: "destructive",
-          });
-        }
-      });
-    } catch (err) {
-      console.log("Create operation error:", err);
+      
+      // Close the dialog and reset the form
+      setIsCreateOpen(false);
+      form.reset();
+      
       toast({
-        title: "Failed to create item",
-        description: "There was an error creating the physical item.",
+        title: "Physical item created",
+        description: "The physical item has been created successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error creating physical item",
+        description: error.message,
         variant: "destructive",
       });
     }
   };
-  
-  // Handler for updating item
-  const handleUpdate = async () => {
+
+  // Handle form submission for editing an item
+  const onEditSubmit = async (values: PhysicalItemFormValues) => {
     if (!selectedItem) return;
     
-    const isValid = await form.trigger();
-    
-    if (!isValid) {
-      return;
-    }
-    
-    const { name, description, imageUrl, stock, hasVariations, tokenId, burnAmount } = form.getValues();
-    const itemData = { name, description, imageUrl, stock, hasVariations };
-    
-    // If tokenId is provided, verify it exists in the tokens list
-    if (tokenId && tokenId.trim() !== "") {
-      const selectedToken = tokens.find(t => t.tokenId === tokenId);
-      if (!selectedToken) {
-        toast({
-          title: "Invalid token",
-          description: "Please select a valid token from the dropdown list.",
-          variant: "destructive",
-        });
-        return;
+    try {
+      // Update the physical item
+      await updatePhysicalItemMutation.mutateAsync({
+        id: selectedItem.id,
+        name: values.name,
+        description: values.description,
+        imageUrl: values.imageUrl || null,
+        stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
+      });
+      
+      // Get existing token configuration
+      const existingConfig = tokenConfigurations.find(
+        tc => tc.physicalItemId === selectedItem.id
+      );
+      
+      // If token ID is specified (and not "none"), update or create token configuration
+      if (values.tokenId && values.tokenId !== "none") {
+        if (existingConfig) {
+          // Update existing configuration
+          await updateTokenConfigurationMutation.mutateAsync({
+            id: existingConfig.id,
+            tokenId: values.tokenId,
+            burnAmount: values.burnAmount,
+          });
+        } else {
+          // Create new configuration
+          await createTokenConfigurationMutation.mutateAsync({
+            tokenId: values.tokenId,
+            physicalItemId: selectedItem.id,
+            burnAmount: values.burnAmount,
+            isActive: true
+          });
+        }
       }
+      
+      // Close the dialog
+      setIsEditOpen(false);
+      
+      toast({
+        title: "Physical item updated",
+        description: "The physical item has been updated successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating physical item",
+        description: error.message,
+        variant: "destructive",
+      });
     }
+  };
+
+  // Handle deleting an item
+  const handleDelete = async () => {
+    if (!selectedItem) return;
     
     try {
-      updatePhysicalItemMutation.mutate(
-        { id: selectedItem.id, data: itemData }, 
-        {
-          onSuccess: (updatedItem) => {
-            console.log("Item updated successfully:", updatedItem);
-            
-            // Only update token configuration if a token ID was provided
-            if (tokenId && tokenId.trim() !== "") {
-              // Also update the token configuration
-              const tokenConfig = tokenConfigurations.find(tc => tc.physicalItemId === selectedItem.id);
-              
-              // Create or update token configuration
-              if (tokenConfig) {
-                console.log("Updating token configuration:", {
-                  id: tokenConfig.id,
-                  data: {
-                    tokenId,
-                    burnAmount
-                  }
-                });
-                updateTokenConfigurationMutation.mutate({
-                  id: tokenConfig.id,
-                  data: {
-                    tokenId,
-                    burnAmount,
-                    isActive: true
-                  }
-                }, {
-                  onSuccess: (updatedConfig: TokenConfiguration) => {
-                    console.log("Token configuration updated successfully:", updatedConfig);
-                  },
-                  onError: (error: Error) => {
-                    console.error("Error updating token configuration:", error);
-                    toast({
-                      title: "Warning",
-                      description: "Physical item was updated but token configuration failed. You can update it later.",
-                      variant: "destructive",
-                    });
-                  }
-                })
-              } else {
-                console.log("Creating new token configuration:", {
-                  tokenId,
-                  physicalItemId: selectedItem.id,
-                  burnAmount,
-                  isActive: true
-                });
-                
-                // Add a delay to ensure the physical item update is completed
-                setTimeout(() => {
-                  const newTokenConfig: InsertTokenConfiguration = {
-                    tokenId,
-                    physicalItemId: selectedItem.id,
-                    burnAmount: burnAmount || 1, // Default to 1 if not provided
-                    isActive: true
-                  };
-                  
-                  createTokenConfigurationMutation.mutate(newTokenConfig, {
-                    onSuccess: (newConfig: TokenConfiguration) => {
-                      console.log("Token configuration created successfully:", newConfig);
-                      toast({
-                        title: "Success",
-                        description: "Physical item and token configuration updated successfully.",
-                      });
-                    },
-                    onError: (error: Error) => {
-                      console.error("Error creating token configuration:", error);
-                      toast({
-                        title: "Warning",
-                        description: "Physical item was updated but token configuration failed. You can add it later.",
-                        variant: "destructive",
-                      });
-                    }
-                  });
-                }, 500);
-              }
-            }
-            
-            toast({
-              title: "Physical item updated",
-              description: "The physical item has been updated successfully.",
-            });
-            setIsEditOpen(false);
-            setTokenVerification(null); // Reset token verification for next update
-            
-            // Clear cache and force a complete refresh
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
-            
-            // Force a refetch with a delay
-            setTimeout(() => {
-              queryClient.refetchQueries({ 
-                queryKey: ["/api/admin/physical-items"],
-                exact: true,
-                type: 'all'
-              });
-              queryClient.refetchQueries({ 
-                queryKey: ["/api/admin/token-configurations"],
-                exact: true,
-                type: 'all'
-              });
-            }, 500);
-          },
-          onError: (error) => {
-            console.log("Update operation failed:", error);
-            toast({
-              title: "Failed to update item",
-              description: "There was an error updating the physical item.",
-              variant: "destructive",
-            });
-          }
-        }
-      );
-    } catch (err) {
-      console.log("Update operation error:", err);
+      await deletePhysicalItemMutation.mutateAsync(selectedItem.id);
+      setIsDeleteOpen(false);
+      
       toast({
-        title: "Failed to update item",
-        description: "There was an error updating the physical item.",
+        title: "Physical item deleted",
+        description: "The physical item has been deleted successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting physical item",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -486,7 +265,7 @@ export default function PhysicalItemsNewPage() {
             imageUrl: "",
             stock: 0,
             hasVariations: false,
-            tokenId: "",
+            tokenId: "none",
             burnAmount: 1
           });
           setIsCreateOpen(true);
@@ -546,13 +325,13 @@ export default function PhysicalItemsNewPage() {
                     if (tokenConfig && token) {
                       return (
                         <div className="mb-4 p-2 bg-blue-50 rounded-md border border-blue-100">
-                          <div className="text-xs text-blue-700 font-medium mb-1">TOKEN REQUIREMENT</div>
-                          <div className="flex justify-between items-center">
-                            <div className="text-sm font-medium">
-                              {token.symbol}
+                          <p className="text-xs text-blue-700 mb-1">Token Required:</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <span className="font-semibold text-sm">{token.name} ({token.symbol})</span>
                             </div>
-                            <div className="text-sm bg-blue-100 px-2 py-1 rounded-md">
-                              Burn: {tokenConfig.burnAmount}
+                            <div className="text-xs bg-blue-200 px-2 py-1 rounded font-medium text-blue-800">
+                              {tokenConfig.burnAmount} {token.symbol}
                             </div>
                           </div>
                         </div>
@@ -560,29 +339,38 @@ export default function PhysicalItemsNewPage() {
                     } else {
                       return (
                         <div className="mb-4 p-2 bg-gray-50 rounded-md border border-gray-100">
-                          <div className="text-xs text-gray-500">No token configuration</div>
+                          <p className="text-xs text-gray-500">No token requirement</p>
                         </div>
                       );
                     }
                   })()}
                   
-                  <div className="flex justify-between gap-2">
+                  {/* Stock information */}
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="text-muted-foreground">
+                      Stock:
+                    </div>
+                    <div className={`font-medium ${item.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {item.stock}
+                    </div>
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2 mt-4">
                     <Button 
-                      variant="outline" 
                       size="sm" 
-                      className="flex-1"
+                      variant="outline" 
                       onClick={() => handleEditClick(item)}
                     >
-                      <PencilIcon className="h-3 w-3 mr-1" />
+                      <PencilIcon className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
                     <Button 
-                      variant="outline" 
                       size="sm" 
-                      className="flex-1 text-destructive hover:text-destructive"
+                      variant="destructive" 
                       onClick={() => handleDeleteClick(item)}
                     >
-                      <Trash2Icon className="h-3 w-3 mr-1" />
+                      <Trash2Icon className="h-4 w-4 mr-1" />
                       Delete
                     </Button>
                   </div>
@@ -593,24 +381,18 @@ export default function PhysicalItemsNewPage() {
         </div>
       )}
       
-      {/* Create Item Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={(open) => {
-        setIsCreateOpen(open);
-        if (!open) {
-          form.reset();
-          setTokenVerification(null);
-        }
-      }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      {/* Create Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Physical Item</DialogTitle>
+            <DialogTitle>Add New Physical Item</DialogTitle>
             <DialogDescription>
-              Add a new physical item that users can redeem with tokens.
+              Add a new physical item that can be redeemed by burning tokens.
             </DialogDescription>
           </DialogHeader>
           
           <Form {...form}>
-            <div className="space-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="name"
@@ -618,12 +400,13 @@ export default function PhysicalItemsNewPage() {
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Limited Edition T-Shirt" {...field} />
+                      <Input placeholder="Enter item name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
                 name="description"
@@ -632,26 +415,9 @@ export default function PhysicalItemsNewPage() {
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="A detailed description of the physical item" 
-                        className="resize-none min-h-[100px]" 
+                        placeholder="Enter item description" 
+                        className="resize-none" 
                         {...field} 
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cover Image</FormLabel>
-                    <FormControl>
-                      <FileUpload 
-                        onChange={field.onChange}
-                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -661,23 +427,17 @@ export default function PhysicalItemsNewPage() {
               
               <FormField
                 control={form.control}
-                name="stock"
+                name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Stock Count</FormLabel>
+                    <FormLabel>Image URL</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number" 
-                        min="0"
-                        placeholder="Enter available quantity"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        value={field.value}
+                        placeholder="Enter image URL (optional)" 
+                        {...field} 
+                        value={field.value || ""}
                       />
                     </FormControl>
-                    <FormDescription>
-                      How many of this item are available for redemption
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -687,161 +447,184 @@ export default function PhysicalItemsNewPage() {
                 control={form.control}
                 name="hasVariations"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel>Has Variations</FormLabel>
+                      <FormDescription>
+                        Enable if this item has variations like sizes or colors
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <Checkbox
+                      <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Has Variations</FormLabel>
-                      <FormDescription>
-                        Enable if this item has variations like sizes, colors, etc.
-                      </FormDescription>
-                    </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
+              
+              {!form.watch("hasVariations") && (
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Enter stock quantity" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <FormField
                 control={form.control}
                 name="tokenId"
                 render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Token (optional)</FormLabel>
-                    <div className="flex flex-col space-y-2">
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a token" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">No token required</SelectItem>
-                          {isLoadingTokens ? (
-                            <div className="flex items-center justify-center py-2">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : tokens.length === 0 ? (
-                            <div className="text-center py-2 text-sm text-muted-foreground">
-                              No tokens available
-                            </div>
-                          ) : (
-                            tokens.map((token) => (
-                              <SelectItem key={token.tokenId} value={token.tokenId}>
-                                {token.name} ({token.symbol}) - {token.tokenId}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      
-                      {field.value && field.value.trim() !== "" && (
-                        <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
-                          <div className="flex items-center">
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            <div>
-                              <span className="font-medium">Selected token: </span> 
-                              {tokens.find(t => t.tokenId === field.value)?.name || field.value}
-                            </div>
+                  <FormItem>
+                    <FormLabel>Token Requirement</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a token" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No token required</SelectItem>
+                        {tokens.map((token) => (
+                          <SelectItem key={token.tokenId} value={token.tokenId}>
+                            {token.name} ({token.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {field.value && field.value !== "none" && field.value.trim() !== "" && (
+                      <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
+                        <div className="flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          <div>
+                            {(() => {
+                              const token = tokens.find(t => t.tokenId === field.value);
+                              return token 
+                                ? `Using ${token.name} (${token.symbol})`
+                                : "Token verified";
+                            })()}
                           </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="burnAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Burn Amount</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min={1}
-                        placeholder="1"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                        value={field.value}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </Form>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)} type="button">
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCreate}
-              disabled={createPhysicalItemMutation.isPending}
-            >
-              {createPhysicalItemMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Item"
+              {form.watch("tokenId") && form.watch("tokenId") !== "none" && (
+                <FormField
+                  control={form.control}
+                  name="burnAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Burn Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Number of tokens to burn" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            </Button>
-          </DialogFooter>
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsCreateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={createPhysicalItemMutation.isPending}
+                >
+                  {createPhysicalItemMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Create Item
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
       
-      {/* Edit Item Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => {
-        setIsEditOpen(open);
-        if (!open) {
-          setSelectedItem(null);
-          setTokenVerification(null);
-        }
-      }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Physical Item</DialogTitle>
             <DialogDescription>
-              Update details for this physical item.
+              Update the details of this physical item.
             </DialogDescription>
           </DialogHeader>
           
-          <Form {...form}>
-            <div className="space-y-4 py-4">
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
               <FormField
-                control={form.control}
+                control={editForm.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Enter item name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              
               <FormField
-                control={form.control}
+                control={editForm.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Textarea 
-                        className="resize-none min-h-[100px]" 
+                        placeholder="Enter item description" 
+                        className="resize-none" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter image URL (optional)" 
                         {...field} 
                         value={field.value || ""}
                       />
@@ -850,201 +633,173 @@ export default function PhysicalItemsNewPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cover Image</FormLabel>
-                    <FormControl>
-                      <FileUpload 
-                        onChange={field.onChange}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="stock"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stock Count</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min="0"
-                        placeholder="Enter available quantity"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        value={field.value}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      How many of this item are available for redemption
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               
               <FormField
-                control={form.control}
+                control={editForm.control}
                 name="hasVariations"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel>Has Variations</FormLabel>
+                      <FormDescription>
+                        Enable if this item has variations like sizes or colors
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <Checkbox
+                      <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Has Variations</FormLabel>
-                      <FormDescription>
-                        Enable if this item has variations like sizes, colors, etc.
-                      </FormDescription>
-                    </div>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
               
+              {!editForm.watch("hasVariations") && (
+                <FormField
+                  control={editForm.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Enter stock quantity" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              
               <FormField
-                control={form.control}
+                control={editForm.control}
                 name="tokenId"
                 render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Token (optional)</FormLabel>
-                    <div className="flex flex-col space-y-2">
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a token" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">No token required</SelectItem>
-                          {isLoadingTokens ? (
-                            <div className="flex items-center justify-center py-2">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : tokens.length === 0 ? (
-                            <div className="text-center py-2 text-sm text-muted-foreground">
-                              No tokens available
-                            </div>
-                          ) : (
-                            tokens.map((token) => (
-                              <SelectItem key={token.tokenId} value={token.tokenId}>
-                                {token.name} ({token.symbol}) - {token.tokenId}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      
-                      {field.value && field.value.trim() !== "" && (
-                        <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
-                          <div className="flex items-center">
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            <div>
-                              <span className="font-medium">Selected token: </span> 
-                              {tokens.find(t => t.tokenId === field.value)?.name || field.value}
-                            </div>
+                  <FormItem>
+                    <FormLabel>Token Requirement</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a token" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No token required</SelectItem>
+                        {tokens.map((token) => (
+                          <SelectItem key={token.tokenId} value={token.tokenId}>
+                            {token.name} ({token.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {field.value && field.value !== "none" && field.value.trim() !== "" && (
+                      <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
+                        <div className="flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          <div>
+                            {(() => {
+                              const token = tokens.find(t => t.tokenId === field.value);
+                              return token 
+                                ? `Using ${token.name} (${token.symbol})`
+                                : "Token verified";
+                            })()}
                           </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="burnAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Burn Amount</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min={1}
-                        placeholder="1"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                        value={field.value}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </Form>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)} type="button">
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleUpdate}
-              disabled={updatePhysicalItemMutation.isPending}
-            >
-              {updatePhysicalItemMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Update Item"
+              {editForm.watch("tokenId") && editForm.watch("tokenId") !== "none" && (
+                <FormField
+                  control={editForm.control}
+                  name="burnAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Burn Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Number of tokens to burn" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            </Button>
-          </DialogFooter>
+              
+              {selectedItem && editForm.watch("hasVariations") && (
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-3">Manage Variations</h4>
+                  <ItemVariationManager 
+                    physicalItemId={selectedItem.id}
+                    onVariationsChange={() => {
+                      // Refresh data after variations change
+                      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+                    }}
+                  />
+                </div>
+              )}
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={updatePhysicalItemMutation.isPending}
+                >
+                  {updatePhysicalItemMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Update Item
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
       
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={(open) => {
-        setIsDeleteOpen(open);
-        if (!open) setSelectedItem(null);
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Physical Item</DialogTitle>
-            <DialogDescription>
-              This will permanently remove the item from your inventory.
-            </DialogDescription>
-          </DialogHeader>
-          <p className="py-4">
-            Are you sure you want to delete <strong>{selectedItem?.name}</strong>? This action cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the physical item. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
               onClick={handleDelete}
               disabled={deletePhysicalItemMutation.isPending}
+              className="bg-red-500 hover:bg-red-600"
             >
-              {deletePhysicalItemMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
+              {deletePhysicalItemMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
