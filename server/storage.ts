@@ -187,30 +187,40 @@ export class MemStorage implements IStorage {
     const physicalItems: PhysicalItem[] = [
       {
         id: this.currentPhysicalItemId++,
-        name: "Limited Edition Merchandise Pack",
-        description: "A collection of limited edition merchandise including t-shirts, stickers, and a tote bag.",
-        imageUrl: "https://example.com/merch-pack.jpg",
-        stock: 100,
-        hasVariations: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: this.currentPhysicalItemId++,
-        name: "Exclusive Branded Apparel",
-        description: "High-quality branded apparel with blockchain-themed designs.",
-        imageUrl: "https://example.com/apparel.jpg",
+        name: "Premium Crypto T-Shirt",
+        description: "High-quality cotton t-shirt with exclusive crypto-themed design, perfect for blockchain enthusiasts.",
+        imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800",
         stock: 50,
+        hasVariations: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: this.currentPhysicalItemId++,
+        name: "Blockchain Snapback Hat",
+        description: "Stylish snapback hat featuring a minimalist blockchain design. One size fits most.",
+        imageUrl: "https://images.unsplash.com/photo-1556306535-0f09a537f0a3?w=800",
+        stock: 35,
         hasVariations: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
       {
         id: this.currentPhysicalItemId++,
-        name: "Collectible Hedera-themed Item",
-        description: "Rare collectible item for Hedera enthusiasts. Limited supply available.",
-        imageUrl: "https://example.com/collectible.jpg",
+        name: "Hedera Hoodie",
+        description: "Comfortable and warm hoodie with the Hedera logo. Perfect for crypto winters.",
+        imageUrl: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800",
         stock: 25,
+        hasVariations: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: this.currentPhysicalItemId++,
+        name: "Limited Edition Collectible Coin",
+        description: "Metal collectible coin commemorating the Hedera network. Numbered limited edition.",
+        imageUrl: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800",
+        stock: 15,
         hasVariations: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -227,26 +237,26 @@ export class MemStorage implements IStorage {
         id: this.currentShopId++,
         name: "Limited Edition Collection",
         description: "Exclusive items available for token redemption. Get them while supplies last!",
-        imageUrl: "https://example.com/limited-edition.jpg",
+        imageUrl: "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800",
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
       {
         id: this.currentShopId++,
-        name: "Hedera Merchandise",
-        description: "Official Hedera merchandise available for token redemption.",
-        imageUrl: "https://example.com/hedera-merchandise.jpg",
+        name: "Hedera Apparel",
+        description: "Official Hedera-branded apparel available for token redemption.",
+        imageUrl: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=800",
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
       {
         id: this.currentShopId++,
-        name: "Community Rewards",
-        description: "Redeem your community tokens for exclusive physical items.",
-        imageUrl: "https://example.com/community-rewards.jpg",
-        isActive: false, // This shop is not active yet
+        name: "Collector's Corner",
+        description: "Rare collectibles and limited editions for token holders.",
+        imageUrl: "https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=800",
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -299,8 +309,8 @@ export class MemStorage implements IStorage {
       {
         id: this.currentTokenConfigId++,
         tokenId: "0.0.1001",
-        physicalItemId: 1,
-        burnAmount: 1,
+        physicalItemId: 1, // Premium Crypto T-Shirt
+        burnAmount: 10,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -308,8 +318,8 @@ export class MemStorage implements IStorage {
       {
         id: this.currentTokenConfigId++,
         tokenId: "0.0.1002",
-        physicalItemId: 2,
-        burnAmount: 1,
+        physicalItemId: 2, // Blockchain Snapback Hat
+        burnAmount: 5,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -317,8 +327,17 @@ export class MemStorage implements IStorage {
       {
         id: this.currentTokenConfigId++,
         tokenId: "0.0.1003",
-        physicalItemId: 3,
-        burnAmount: 1,
+        physicalItemId: 3, // Hedera Hoodie
+        burnAmount: 15,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: this.currentTokenConfigId++,
+        tokenId: "0.0.1001",
+        physicalItemId: 4, // Limited Edition Collectible Coin
+        burnAmount: 20,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -329,11 +348,11 @@ export class MemStorage implements IStorage {
       this.tokenConfigurations.set(config.id, config);
     });
     
-    // Seed shop items associations - add items to the first shop
-    for (let i = 1; i <= 3; i++) {
+    // Seed shop items associations - add all items to the first shop (Limited Edition Collection)
+    for (let i = 1; i <= 4; i++) {
       const shopItem: ShopItem = {
         id: this.currentShopItemId++,
-        shopId: 1, // First shop
+        shopId: 1, // Limited Edition Collection
         physicalItemId: i,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -341,11 +360,25 @@ export class MemStorage implements IStorage {
       this.shopItems.set(shopItem.id, shopItem);
     }
     
-    // Add first two items to the second shop
-    for (let i = 1; i <= 2; i++) {
+    // Add apparel items to the second shop (Hedera Apparel)
+    // T-Shirt and Hoodie (items 1 & 3)
+    for (const i of [1, 3]) {
       const shopItem: ShopItem = {
         id: this.currentShopItemId++,
-        shopId: 2, // Second shop
+        shopId: 2, // Hedera Apparel shop
+        physicalItemId: i,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      this.shopItems.set(shopItem.id, shopItem);
+    }
+    
+    // Add collectible items to the third shop (Collector's Corner)
+    // Collectible Coin and Blockchain Hat (items 4 & 2)
+    for (const i of [4, 2]) {
+      const shopItem: ShopItem = {
+        id: this.currentShopItemId++,
+        shopId: 3, // Collector's Corner shop
         physicalItemId: i,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
