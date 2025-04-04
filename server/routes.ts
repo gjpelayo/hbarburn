@@ -138,7 +138,7 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up Passport authentication and session handling
+  // Set up auth routes (session/passport setup is now in index.ts)
   setupAuth(app);
 
   // Authentication Routes

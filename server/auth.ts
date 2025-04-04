@@ -1,17 +1,8 @@
 import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
-import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
-
-declare global {
-  namespace Express {
-    interface User extends SelectUser {}
-  }
-}
 
 const scryptAsync = promisify(scrypt);
 
@@ -21,92 +12,9 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-async function comparePasswords(supplied: string, stored: string | null) {
-  if (!stored) return false;
-  
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
-
 export function setupAuth(app: Express) {
-  app.set("trust proxy", 1);
-  
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: true,        // Force HTTPS-only cookies
-      sameSite: 'none',    // Allow cross-origin cookies
-      maxAge: 604800000    // 7 days
-    },
-    store: storage.sessionStore
-  };
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !user.password || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
-      } catch (error) {
-        return done(error);
-      }
-    }),
-  );
-
-  // This is the key part - serialization/deserialization needs to handle both wallet and regular users
-  passport.serializeUser((user, done) => {
-    console.log("Serializing user:", user.id, user.accountId || '(no accountId)');
-    if (user.accountId) {
-      // For wallet users, serialize the accountId as a string with prefix
-      done(null, `wallet:${user.accountId}`);
-    } else {
-      // For regular users, serialize the numeric ID
-      done(null, `id:${user.id}`);
-    }
-  });
-  
-  passport.deserializeUser(async (serialized: string, done) => {
-    try {
-      console.log("Deserializing user from:", serialized);
-      
-      // Extract the type and value from the serialized string
-      const [type, value] = serialized.split(':');
-      
-      let user;
-      if (type === 'wallet') {
-        // Handle wallet users - deserialize by accountId
-        user = await storage.getUserByAccountId(value);
-        console.log("Deserializing wallet user:", value, "Result:", user ? "Found" : "Not found");
-      } else if (type === 'id') {
-        // Handle regular users - deserialize by ID
-        const id = parseInt(value, 10);
-        user = await storage.getUser(id);
-        console.log("Deserializing ID user:", id, "Result:", user ? "Found" : "Not found");
-      } else {
-        return done(new Error(`Unknown serialization type: ${type}`));
-      }
-      
-      if (!user) {
-        return done(new Error('User not found'));
-      }
-      
-      return done(null, user);
-    } catch (error) {
-      console.error("Error deserializing user:", error);
-      done(error);
-    }
-  });
+  // Note: Session and passport configuration moved to index.ts
+  // The auth routes setup remains here
 
   // Admin authentication middleware
   app.post("/api/admin/login", passport.authenticate("local"), (req, res) => {
