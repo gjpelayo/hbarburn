@@ -92,7 +92,7 @@ export default function PhysicalItemsNewPage() {
       imageUrl: "",
       stock: 0,
       hasVariations: false,
-      tokenId: "none",
+      tokenId: "",
       burnAmount: 1
     },
   });
@@ -106,7 +106,7 @@ export default function PhysicalItemsNewPage() {
       imageUrl: "",
       stock: 0,
       hasVariations: false,
-      tokenId: "none",
+      tokenId: "",
       burnAmount: 1,
     },
   });
@@ -140,6 +140,16 @@ export default function PhysicalItemsNewPage() {
   // Handle form submission for creating a new item
   const onSubmit = async (values: PhysicalItemFormValues) => {
     try {
+      // Validate token is selected
+      if (!values.tokenId || values.tokenId.trim() === "") {
+        toast({
+          title: "Token required",
+          description: "You must select a token requirement for this item",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Create the physical item
       const newItem = await createPhysicalItemMutation.mutateAsync({
         name: values.name,
@@ -148,19 +158,21 @@ export default function PhysicalItemsNewPage() {
         stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
       });
       
-      // Create token configuration if a token is specified
-      if (values.tokenId && values.tokenId !== "none") {
-        await createTokenConfigurationMutation.mutateAsync({
-          tokenId: values.tokenId,
-          physicalItemId: newItem.id,
-          burnAmount: values.burnAmount,
-          isActive: true
-        });
-      }
+      // Create token configuration
+      await createTokenConfigurationMutation.mutateAsync({
+        tokenId: values.tokenId,
+        physicalItemId: newItem.id,
+        burnAmount: values.burnAmount,
+        isActive: true
+      });
       
       // Close the dialog and reset the form
       setIsCreateOpen(false);
       form.reset();
+      
+      // Update the query cache to display the new item immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
       
       toast({
         title: "Physical item created",
@@ -180,13 +192,25 @@ export default function PhysicalItemsNewPage() {
     if (!selectedItem) return;
     
     try {
+      // Validate token is selected
+      if (!values.tokenId || values.tokenId.trim() === "") {
+        toast({
+          title: "Token required",
+          description: "You must select a token requirement for this item",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Update the physical item
       await updatePhysicalItemMutation.mutateAsync({
         id: selectedItem.id,
-        name: values.name,
-        description: values.description,
-        imageUrl: values.imageUrl || null,
-        stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
+        data: {
+          name: values.name,
+          description: values.description,
+          imageUrl: values.imageUrl || null,
+          stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
+        }
       });
       
       // Get existing token configuration
@@ -194,28 +218,31 @@ export default function PhysicalItemsNewPage() {
         tc => tc.physicalItemId === selectedItem.id
       );
       
-      // If token ID is specified (and not "none"), update or create token configuration
-      if (values.tokenId && values.tokenId !== "none") {
-        if (existingConfig) {
-          // Update existing configuration
-          await updateTokenConfigurationMutation.mutateAsync({
-            id: existingConfig.id,
+      if (existingConfig) {
+        // Update existing configuration
+        await updateTokenConfigurationMutation.mutateAsync({
+          id: existingConfig.id,
+          data: {
             tokenId: values.tokenId,
             burnAmount: values.burnAmount,
-          });
-        } else {
-          // Create new configuration
-          await createTokenConfigurationMutation.mutateAsync({
-            tokenId: values.tokenId,
-            physicalItemId: selectedItem.id,
-            burnAmount: values.burnAmount,
-            isActive: true
-          });
-        }
+          }
+        });
+      } else {
+        // Create new configuration
+        await createTokenConfigurationMutation.mutateAsync({
+          tokenId: values.tokenId,
+          physicalItemId: selectedItem.id,
+          burnAmount: values.burnAmount,
+          isActive: true
+        });
       }
       
       // Close the dialog
       setIsEditOpen(false);
+      
+      // Update the query cache to display the changes immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/token-configurations"] });
       
       toast({
         title: "Physical item updated",
@@ -265,7 +292,7 @@ export default function PhysicalItemsNewPage() {
             imageUrl: "",
             stock: 0,
             hasVariations: false,
-            tokenId: "none",
+            tokenId: "",
             burnAmount: 1
           });
           setIsCreateOpen(true);
