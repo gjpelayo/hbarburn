@@ -256,45 +256,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = await storage.createOrGetWalletUser(accountId);
         console.log("User created/retrieved from storage:", user);
         
-        // Set session data first
-        req.session.user = user;
-        req.session.isLoggedIn = true;
-        
-        // Save the session before passport login
-        await new Promise<void>((resolve, reject) => {
-          req.session.save((err) => {
-            if (err) {
-              console.error("Error saving session:", err);
-              reject(err);
-            } else {
-              console.log("Session saved successfully");
-              resolve();
+        // Deep clone the user to ensure it's properly serialized
+        const userCopy = JSON.parse(JSON.stringify(user));
+        console.log("User object stringified and parsed to ensure proper serialization:", userCopy);
+
+        // Use Passport login first to set up the session correctly
+        return new Promise<void>((resolve, reject) => {
+          req.login(userCopy, async (loginErr) => {
+            if (loginErr) {
+              console.error("Passport login error:", loginErr);
+              return res.status(500).json({ success: false, error: "Login failed" });
+            }
+            
+            console.log("Passport authenticated:", req.isAuthenticated());
+            console.log("Passport user:", req.user);
+            
+            // Explicitly set session data as well (belt and suspenders)
+            req.session.user = userCopy;
+            req.session.isLoggedIn = true;
+            
+            // Save the session
+            try {
+              await new Promise<void>((resolveSession, rejectSession) => {
+                req.session.save((saveErr) => {
+                  if (saveErr) {
+                    console.error("Session save error:", saveErr);
+                    rejectSession(saveErr);
+                  } else {
+                    console.log("Session saved successfully");
+                    resolveSession();
+                  }
+                });
+              });
+              
+              console.log("AFTER SESSION SAVE:");
+              console.log("- Session ID:", req.sessionID);
+              console.log("- Authenticated:", req.isAuthenticated());
+              console.log("- Session user:", req.session.user);
+              console.log("- Passport user:", req.user);
+              console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
+              
+              return res.json({ 
+                success: true,
+                accountId: userCopy.accountId,
+                userId: userCopy.id,
+                isAdmin: userCopy.isAdmin
+              });
+            } catch (saveError) {
+              console.error("Session save error:", saveError);
+              return res.status(500).json({ success: false, error: "Session save failed" });
             }
           });
-        });
-        
-        // Now login with passport
-        await new Promise<void>((resolve, reject) => {
-          req.login(user, (err) => {
-            if (err) {
-              console.error("Passport login failed:", err);
-              reject(err);
-            } else {
-              console.log("✅ Passport login successful");
-              resolve();
-            }
-          });
-        });
-        
-        console.log("Session ID:", req.sessionID);
-        console.log("Is authenticated after login:", req.isAuthenticated());
-        console.log("Session after login:", req.session);
-        console.log("=== END SIGNATURE AUTHENTICATION - SUCCESS ===");
-        
-        // Return success response
-        return res.json({ 
-          success: true,
-          accountId
         });
       } catch (storageError) {
         console.error("User retrieval/storage error:", storageError);

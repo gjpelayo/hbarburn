@@ -3,15 +3,27 @@ import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { useWallet } from '@/context/WalletContext';
 
 export default function SessionTest() {
   const { toast } = useToast();
   const { user, isAdmin, checkSessionStatus } = useAuth();
+  const { 
+    accountId, 
+    isConnected, 
+    connectWallet, 
+    disconnectWallet, 
+    authenticateWithSignature 
+  } = useWallet();
   const [sessionStatus, setSessionStatus] = useState<any>(null);
   const [cookieTest, setCookieTest] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [walletAuthResult, setWalletAuthResult] = useState<any>(null);
 
   const checkSession = async () => {
     setLoading(true);
@@ -100,6 +112,88 @@ export default function SessionTest() {
       console.error('Error refreshing session via hook:', error);
       toast({
         title: 'Error Refreshing Session',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Connect wallet and authenticate
+  const handleConnectWallet = async () => {
+    setLoading(true);
+    try {
+      const connected = await connectWallet('walletconnect');
+      if (connected) {
+        toast({
+          title: 'Wallet Connected',
+          description: `Connected to wallet: ${accountId}`,
+        });
+        
+        // Refresh session data
+        await refreshSessionStatus();
+      }
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      toast({
+        title: 'Connection Error',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Disconnect wallet
+  const handleDisconnectWallet = async () => {
+    setLoading(true);
+    try {
+      await disconnectWallet();
+      toast({
+        title: 'Wallet Disconnected',
+        description: 'Your wallet has been disconnected',
+      });
+      
+      // Refresh session data
+      await refreshSessionStatus();
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      toast({
+        title: 'Disconnection Error',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Authenticate with wallet signature
+  const handleSignatureAuth = async () => {
+    setLoading(true);
+    setWalletAuthResult(null);
+    try {
+      const success = await authenticateWithSignature();
+      
+      setWalletAuthResult({
+        success,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Refresh session data
+      await refreshSessionStatus();
+    } catch (error) {
+      console.error('Error authenticating with signature:', error);
+      setWalletAuthResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      });
+      
+      toast({
+        title: 'Authentication Error',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -205,6 +299,95 @@ export default function SessionTest() {
       </div>
 
       <div className="mt-8">
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Wallet Authentication Test</CardTitle>
+            <CardDescription>Test Hedera wallet connection and authentication</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="connect" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="connect">Wallet Connection</TabsTrigger>
+                <TabsTrigger value="signature" disabled={!isConnected}>Signature Auth</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="connect" className="space-y-4 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Wallet Status</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isConnected 
+                        ? `Connected to ${accountId}` 
+                        : 'Not connected'}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={isConnected ? "default" : "outline"}
+                    className={isConnected ? "bg-green-600" : ""}
+                  >
+                    {isConnected ? "Connected" : "Disconnected"}
+                  </Badge>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleConnectWallet} 
+                    disabled={loading || isConnected} 
+                    className="flex-1"
+                  >
+                    Connect Wallet
+                  </Button>
+                  <Button 
+                    onClick={handleDisconnectWallet} 
+                    disabled={loading || !isConnected}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Disconnect Wallet
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="signature" className="space-y-4 py-4">
+                <div>
+                  <p className="text-sm font-medium">Signature Authentication</p>
+                  <p className="text-xs text-muted-foreground">
+                    Test the wallet signature-based authentication process
+                  </p>
+                </div>
+                
+                {walletAuthResult && (
+                  <div className={`p-4 rounded-md ${walletAuthResult.success ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                    <p className="font-medium">
+                      {walletAuthResult.success 
+                        ? 'Authentication successful! ✅' 
+                        : 'Authentication failed ❌'}
+                    </p>
+                    {walletAuthResult.error && (
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        Error: {walletAuthResult.error}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {new Date(walletAuthResult.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                
+                <Button 
+                  onClick={handleSignatureAuth} 
+                  disabled={loading || !isConnected}
+                  className="w-full"
+                >
+                  Authenticate with Signature
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+        
         <h2 className="text-2xl font-bold mb-4">Debug Information</h2>
         <div className="bg-muted p-4 rounded-md">
           <pre className="text-xs overflow-auto">
@@ -213,8 +396,13 @@ export default function SessionTest() {
                 user,
                 isAdmin,
               },
+              walletContext: {
+                isConnected,
+                accountId,
+              },
               sessionStatus,
               cookieTest,
+              walletAuthResult,
               documentCookies: document.cookie,
             }, null, 2)}
           </pre>
