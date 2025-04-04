@@ -35,18 +35,11 @@ const physicalItemFormSchema = z.object({
   imageUrl: z.string().url("Must be a valid URL").or(z.string().length(0)).optional(),
   stock: z.coerce.number().int().min(0, "Stock must be zero or greater"),
   hasVariations: z.boolean().default(false),
-  tokenId: z.string(),
+  tokenId: z.string().min(1, "Token selection is required"),
   burnAmount: z.coerce.number().int().min(1, "Burn amount must be at least 1"),
 });
 
 type PhysicalItemFormValues = z.infer<typeof physicalItemFormSchema>;
-
-interface TokenVerificationResponse {
-  isValid: boolean;
-  name?: string;
-  symbol?: string;
-  error?: string;
-}
 
 export default function PhysicalItemsNewPage() {
   const { toast } = useToast();
@@ -63,10 +56,6 @@ export default function PhysicalItemsNewPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PhysicalItem | null>(null);
-  
-  // State for token verification
-  const [tokenVerification, setTokenVerification] = useState<TokenVerificationResponse | null>(null);
-  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   
   // Fetch physical items
   const { data: physicalItems = [], isLoading } = useQuery<PhysicalItem[]>({
@@ -120,11 +109,11 @@ export default function PhysicalItemsNewPage() {
     
     editForm.reset({
       name: item.name,
-      description: item.description,
+      description: item.description || "",
       imageUrl: item.imageUrl || "",
-      stock: item.stock,
-      hasVariations: false, // You might need to determine this from your data model
-      tokenId: tokenConfig ? tokenConfig.tokenId : "none",
+      stock: item.stock || 0,
+      hasVariations: false,
+      tokenId: tokenConfig ? tokenConfig.tokenId : "",
       burnAmount: tokenConfig ? tokenConfig.burnAmount : 1,
     });
     
@@ -209,7 +198,7 @@ export default function PhysicalItemsNewPage() {
           name: values.name,
           description: values.description,
           imageUrl: values.imageUrl || null,
-          stock: values.hasVariations ? 0 : values.stock, // If using variations, stock will be managed by variations
+          stock: values.hasVariations ? 0 : values.stock,
         }
       });
       
@@ -264,6 +253,9 @@ export default function PhysicalItemsNewPage() {
     try {
       await deletePhysicalItemMutation.mutateAsync(selectedItem.id);
       setIsDeleteOpen(false);
+      
+      // Update the query cache 
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
       
       toast({
         title: "Physical item deleted",
@@ -365,8 +357,8 @@ export default function PhysicalItemsNewPage() {
                       );
                     } else {
                       return (
-                        <div className="mb-4 p-2 bg-gray-50 rounded-md border border-gray-100">
-                          <p className="text-xs text-gray-500">No token requirement</p>
+                        <div className="mb-4 p-2 bg-yellow-50 rounded-md border border-yellow-100">
+                          <p className="text-xs text-yellow-700">Token configuration needed</p>
                         </div>
                       );
                     }
@@ -377,8 +369,8 @@ export default function PhysicalItemsNewPage() {
                     <div className="text-muted-foreground">
                       Stock:
                     </div>
-                    <div className={`font-medium ${item.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                      {item.stock}
+                    <div className={`font-medium ${item.stock && item.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {item.stock || 0}
                     </div>
                   </div>
                   
@@ -523,20 +515,23 @@ export default function PhysicalItemsNewPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a token" />
+                          <SelectValue placeholder="Select a token (required)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">No token required</SelectItem>
-                        {tokens.map((token) => (
-                          <SelectItem key={token.tokenId} value={token.tokenId}>
-                            {token.name} ({token.symbol})
-                          </SelectItem>
-                        ))}
+                        {tokens.length === 0 ? (
+                          <SelectItem value="" disabled>No tokens available</SelectItem>
+                        ) : (
+                          tokens.map((token) => (
+                            <SelectItem key={token.tokenId} value={token.tokenId}>
+                              {token.name} ({token.symbol})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     
-                    {field.value && field.value !== "none" && field.value.trim() !== "" && (
+                    {field.value && field.value.trim() !== "" && (
                       <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
                         <div className="flex items-center">
                           <CheckCircle className="h-4 w-4 mr-2" />
@@ -556,7 +551,7 @@ export default function PhysicalItemsNewPage() {
                 )}
               />
               
-              {form.watch("tokenId") && form.watch("tokenId") !== "none" && (
+              {form.watch("tokenId") && form.watch("tokenId").trim() !== "" && (
                 <FormField
                   control={form.control}
                   name="burnAmount"
@@ -714,20 +709,23 @@ export default function PhysicalItemsNewPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a token" />
+                          <SelectValue placeholder="Select a token (required)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">No token required</SelectItem>
-                        {tokens.map((token) => (
-                          <SelectItem key={token.tokenId} value={token.tokenId}>
-                            {token.name} ({token.symbol})
-                          </SelectItem>
-                        ))}
+                        {tokens.length === 0 ? (
+                          <SelectItem value="" disabled>No tokens available</SelectItem>
+                        ) : (
+                          tokens.map((token) => (
+                            <SelectItem key={token.tokenId} value={token.tokenId}>
+                              {token.name} ({token.symbol})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     
-                    {field.value && field.value !== "none" && field.value.trim() !== "" && (
+                    {field.value && field.value.trim() !== "" && (
                       <div className="text-sm p-2 rounded-md mt-1 bg-blue-50 border border-blue-100 text-blue-700">
                         <div className="flex items-center">
                           <CheckCircle className="h-4 w-4 mr-2" />
@@ -747,7 +745,7 @@ export default function PhysicalItemsNewPage() {
                 )}
               />
               
-              {editForm.watch("tokenId") && editForm.watch("tokenId") !== "none" && (
+              {editForm.watch("tokenId") && editForm.watch("tokenId").trim() !== "" && (
                 <FormField
                   control={editForm.control}
                   name="burnAmount"
@@ -765,19 +763,6 @@ export default function PhysicalItemsNewPage() {
                     </FormItem>
                   )}
                 />
-              )}
-              
-              {selectedItem && editForm.watch("hasVariations") && (
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-3">Manage Variations</h4>
-                  <ItemVariationManager 
-                    physicalItemId={selectedItem.id}
-                    onVariationsChange={() => {
-                      // Refresh data after variations change
-                      queryClient.invalidateQueries({ queryKey: ["/api/admin/physical-items"] });
-                    }}
-                  />
-                </div>
               )}
               
               <DialogFooter>
@@ -809,15 +794,15 @@ export default function PhysicalItemsNewPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the physical item. This action cannot be undone.
+              This action cannot be undone. This will permanently delete the
+              physical item and any associated token configurations.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete}
-              disabled={deletePhysicalItemMutation.isPending}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deletePhysicalItemMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
