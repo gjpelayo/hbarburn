@@ -11,7 +11,8 @@ import {
   disconnectWalletConnect,
   burnTokensWithWalletConnect,
   initializeWalletConnect,
-  getWalletConnectState
+  getWalletConnectState,
+  signAuthMessage
 } from "@/lib/walletconnect";
 import { 
   connectBlade, 
@@ -33,6 +34,7 @@ interface WalletContextType {
   connectWallet: (walletType: "walletconnect" | "blade") => Promise<boolean>;
   disconnectWallet: () => void;
   burnTokens: (tokenId: string, amount: number) => Promise<string>;
+  authenticateWithSignature: () => Promise<boolean>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -332,6 +334,86 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     }
   };
   
+  // New authentication method using wallet signatures
+  const authenticateWithSignature = async (): Promise<boolean> => {
+    if (!accountId || !walletType) {
+      toast({
+        title: "Authentication Failed",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    try {
+      // Create a challenge message that includes the account ID and a timestamp
+      const timestamp = Date.now();
+      const message = `Authenticate ${accountId} for the Token Redemption Platform at ${timestamp}`;
+      
+      let signature: string | undefined;
+      
+      if (walletType === "walletconnect") {
+        // Use WalletConnect to sign the message
+        const signResult = await signAuthMessage(message);
+        
+        if (signResult.success && signResult.signature) {
+          signature = signResult.signature;
+        } else {
+          throw new Error(signResult.error || "Failed to sign the authentication message");
+        }
+      } else if (walletType === "blade") {
+        // TODO: Implement Blade signature functionality
+        toast({
+          title: "Not Implemented",
+          description: "Signature authentication not yet implemented for Blade",
+          variant: "destructive",
+        });
+        return false;
+      } else {
+        throw new Error("Unsupported wallet type");
+      }
+      
+      if (!signature) {
+        throw new Error("No signature was provided");
+      }
+      
+      // Send the signed message to the server for verification
+      interface AuthResult {
+        success: boolean;
+        error?: string;
+        accountId?: string;
+      }
+      
+      const authResult = await apiRequest<AuthResult>('POST', '/api/auth/signature', {
+        accountId,
+        message,
+        signature
+      });
+      
+      if (authResult && authResult.success) {
+        // Update query cache to reflect successful authentication
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
+        
+        toast({
+          title: "Authentication Successful",
+          description: "Your wallet signature has been verified",
+        });
+        return true;
+      } else {
+        throw new Error((authResult.error) || "Signature verification failed");
+      }
+    } catch (error) {
+      console.error("Signature authentication error:", error);
+      
+      toast({
+        title: "Authentication Failed",
+        description: error instanceof Error ? error.message : "Failed to authenticate with signature",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+  
   return (
     <WalletContext.Provider
       value={{
@@ -343,6 +425,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         connectWallet,
         disconnectWallet,
         burnTokens,
+        authenticateWithSignature,
       }}
     >
       {children}

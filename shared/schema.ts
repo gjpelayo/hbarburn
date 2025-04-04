@@ -245,6 +245,13 @@ export const walletAuthSchema = z.object({
   accountId: z.string().min(1, "Account ID is required"),
 });
 
+// Signature-based authentication schema
+export const signatureAuthSchema = z.object({
+  accountId: z.string().min(1, "Account ID is required"),
+  message: z.string().min(1, "Message is required"),
+  signature: z.string().min(1, "Signature is required"),
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -281,3 +288,4 @@ export type InsertRedemption = z.infer<typeof insertRedemptionSchema>;
 export type UpdateRedemption = z.infer<typeof updateRedemptionSchema>;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 export type WalletAuthCredentials = z.infer<typeof walletAuthSchema>;
+export type SignatureAuthCredentials = z.infer<typeof signatureAuthSchema>;

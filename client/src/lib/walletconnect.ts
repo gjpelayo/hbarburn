@@ -11,10 +11,16 @@ const PROJECT_ID = "1e30abcb50dc0a3eb2c7bc0f9cf7f25c";
 // For development testing purposes, use a mock account
 const MOCK_TEST_ACCOUNT = "0.0.654321";
 
-// Define response interface for better type safety
+// Define response interfaces for better type safety
 interface WalletConnectResponse {
   success: boolean;
   accountId?: string;
+  error?: string;
+}
+
+interface SignatureResponse {
+  success: boolean;
+  signature?: string;
   error?: string;
 }
 
@@ -257,8 +263,8 @@ export async function burnTokensWithWalletConnect(tokenId: string, amount: numbe
       console.log("Transaction signed and executed:", result);
       
       // 4. Extract transaction ID from result
-      if (result && result.transaction_id) {
-        return result.transaction_id;
+      if (result && typeof result === 'object' && 'transaction_id' in result) {
+        return result.transaction_id as string;
       } else {
         // Fallback to a generated ID format if no transaction ID was returned
         // This should only happen if the wallet implementation doesn't return the proper format
@@ -280,4 +286,58 @@ export function getWalletConnectState() {
     isConnected: state.isConnected,
     accountId: state.accountId,
   };
+}
+
+/**
+ * Signs a message with the connected wallet for authentication
+ * @param message The message to sign
+ * @returns A signature response with the signature if successful
+ */
+export async function signAuthMessage(message: string): Promise<SignatureResponse> {
+  try {
+    if (!state.isConnected || !state.accountId || !state.session || !state.signClient) {
+      throw new Error("Not connected to WalletConnect");
+    }
+    
+    console.log(`Requesting signature for authentication message: ${message}`);
+    
+    // Request signature via WalletConnect using Hedera signing protocol
+    try {
+      const result = await state.signClient.request({
+        topic: state.session.topic,
+        chainId: state.chainId,
+        request: {
+          method: "hedera_signMessage",
+          params: {
+            message: Buffer.from(message).toString('hex'),
+            accountId: state.accountId
+          }
+        }
+      });
+      
+      console.log("Authentication message signed:", result);
+      
+      // Extract signature from result
+      if (result && typeof result === 'object' && 'signature' in result) {
+        return {
+          success: true,
+          signature: result.signature as string
+        };
+      } else {
+        throw new Error("No signature returned from wallet");
+      }
+    } catch (signError) {
+      console.error("Error during message signing:", signError);
+      return {
+        success: false,
+        error: signError instanceof Error ? signError.message : "Failed to sign message"
+      };
+    }
+  } catch (error) {
+    console.error("Message signing error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to sign message"
+    };
+  }
 }

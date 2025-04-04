@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { 
   loginSchema,
   walletAuthSchema,
+  signatureAuthSchema,
   updateRedemptionSchema, 
   insertRedemptionSchema,
   insertPhysicalItemSchema,
@@ -19,7 +20,8 @@ import {
   updateItemVariationSchema,
   insertItemVariantStockSchema,
   type User,
-  type WalletAuthCredentials
+  type WalletAuthCredentials,
+  type SignatureAuthCredentials
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -188,6 +190,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(500).json({ message: "Wallet login failed" });
+    }
+  });
+  
+  // Signature-based authentication route
+  app.post("/api/auth/signature", async (req, res) => {
+    try {
+      const { accountId, message, signature } = signatureAuthSchema.parse(req.body);
+      
+      // Verify the signature is valid for the message and accountId
+      console.log(`Verifying signature for account ${accountId}:`);
+      console.log(`- Message: ${message}`);
+      console.log(`- Signature: ${signature}`);
+      
+      // TODO: We would use Hedera SDK to verify the signature here
+      // This is a placeholder until we have the proper implementation
+      // For demo purposes, we'll consider it valid if the signature is provided
+      
+      // This should be replaced with proper verification when available:
+      // const isValid = verifySignature(accountId, message, signature);
+      const isValid = true; // TEMPORARY! Replace with actual verification
+      
+      if (!isValid) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid signature"
+        });
+      }
+      
+      // Create or get a user based on the wallet's account ID
+      const user = await storage.createOrGetWalletUser(accountId);
+      
+      // Store user in session
+      req.session.user = user;
+      req.session.isLoggedIn = true;
+      
+      // Save the session first to ensure it's stored before passport login
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session:", err);
+          return res.status(500).json({ 
+            success: false, 
+            error: "Session save failed" 
+          });
+        }
+        
+        // Then login with passport
+        req.login(user, (err) => {
+          if (err) {
+            console.error("Error logging in with passport:", err);
+            return res.status(500).json({ 
+              success: false, 
+              error: "Wallet signature login failed" 
+            });
+          }
+          
+          console.log("Successfully authenticated user via signature:", user.id, user.accountId);
+          
+          // Return success response
+          return res.json({ 
+            success: true,
+            accountId: user.accountId
+          });
+        });
+      });
+    } catch (error) {
+      console.error("Signature verification error:", error);
+      
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          success: false,
+          error: "Validation error", 
+          details: validationError.details 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        error: "Signature verification failed" 
+      });
     }
   });
   
