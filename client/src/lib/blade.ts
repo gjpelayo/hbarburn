@@ -21,16 +21,9 @@ const state = {
 export async function connectBlade(): Promise<BladeResponse> {
   try {
     // In development, this would normally connect to the Blade wallet
-    // But since we're building a test/demo, we'll simulate an error
-    // to prevent automatic connection that's causing confusion
-    console.error("Blade wallet integration not yet available");
+    // For demo purposes, we'll use a mock account
+    console.log("Using mock Blade wallet for development");
     
-    return {
-      success: false,
-      error: "Blade wallet integration not yet available. Please use WalletConnect instead."
-    };
-    
-    /* UNCOMMENT THIS FOR ACTUAL BLADE INTEGRATION
     // Demo account ID for development
     const demoAccountId = "0.0.654321";
     
@@ -43,7 +36,6 @@ export async function connectBlade(): Promise<BladeResponse> {
       success: true,
       accountId: demoAccountId
     };
-    */
   } catch (error) {
     console.error("Blade connection error:", error);
     return {

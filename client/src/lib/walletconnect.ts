@@ -118,7 +118,7 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
       };
     }
 
-    /* FOR DEVELOPMENT TESTING ONLY - DISABLED FOR NOW
+    // FOR DEVELOPMENT TESTING ONLY
     // Use a mock account for development testing since we're not fully connecting to a
     // real wallet yet. In production, this would be the actual account from WalletConnect.
     console.log("Using test account for development:", MOCK_TEST_ACCOUNT);
@@ -129,15 +129,6 @@ export async function connectWalletConnect(): Promise<WalletConnectResponse> {
     return {
       success: true,
       accountId: MOCK_TEST_ACCOUNT,
-    };
-    */
-
-    // Simulate WalletConnect error for demo
-    console.error("WalletConnect connection error: Not fully implemented in demo");
-    
-    return {
-      success: false,
-      error: "WalletConnect integration is not fully implemented in this demo. Please refer to Hedera docs for production implementation.",
     };
 
     /* UNCOMMENT THIS FOR PRODUCTION USE WITH ACTUAL WALLET CONNECTION
