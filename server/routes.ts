@@ -40,9 +40,39 @@ declare module "express-session" {
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  if (req.session.isLoggedIn && req.session.user) {
+  // Log authentication status for debugging
+  console.log("isAuthenticated middleware:");
+  console.log("- Session user:", req.session.user ? `ID: ${req.session.user.id}` : 'None');
+  console.log("- Session isLoggedIn:", req.session.isLoggedIn);
+  console.log("- Passport authenticated:", req.isAuthenticated());
+  console.log("- Passport user:", req.user ? `ID: ${req.user.id}` : 'None');
+  
+  // Check both session and passport for authentication
+  if ((req.session.isLoggedIn && req.session.user) || req.isAuthenticated()) {
+    console.log("✅ User is authenticated");
+    
+    // Sync user data between passport and session if needed
+    if (req.isAuthenticated() && req.user && (!req.session.user || !req.session.isLoggedIn)) {
+      // Sync from passport to session
+      req.session.user = req.user;
+      req.session.isLoggedIn = true;
+      console.log("✅ Synced user from passport to session");
+    } else if (!req.isAuthenticated() && req.session.user && req.session.isLoggedIn) {
+      // Sync from session to passport
+      req.login(req.session.user, (err) => {
+        if (err) {
+          console.error("❌ Error syncing user from session to passport:", err);
+        } else {
+          console.log("✅ Synced user from session to passport");
+        }
+      });
+    }
+    
     return next();
   }
+  
+  // Not authenticated
+  console.log("❌ User is not authenticated");
   return res.status(401).json({ message: "Unauthorized" });
 }
 
@@ -234,6 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = user;
       req.session.isLoggedIn = true;
       
+      console.log("✅ Session user set:", req.session.user);
       console.log("Session updated with user:", req.session);
       
       // Save the session first to ensure it's stored before passport login
@@ -374,10 +405,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("User in session:", req.session.user);
     console.log("User in passport:", req.user);
     
+    // Check if user is authenticated through passport or has a session
+    const isAuth = req.isAuthenticated() || !!req.session.user;
+    console.log("✅ Is authenticated (combined check):", isAuth);
+    
     // Return session info (sanitized)
     res.json({
-      authenticated: req.isAuthenticated(),
+      authenticated: isAuth,
       hasSessionUser: !!req.session.user,
+      passportAuth: req.isAuthenticated(),
       sessionID: req.sessionID,
       userID: req.user?.id || req.session.user?.id,
       accountId: req.user?.accountId || req.session.user?.accountId,
