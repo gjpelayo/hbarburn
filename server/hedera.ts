@@ -42,10 +42,10 @@ export const initializeClient = (operatorId?: string, operatorKey?: string) => {
   return client;
 };
 
-// Initialize the client by default
+// Initialize the client with the new operator credentials
 initializeClient(
-  process.env.HEDERA_OPERATOR_ID,
-  process.env.HEDERA_OPERATOR_KEY
+  "0.0.3531301",
+  "0x6d07c01f164c9d9ab5fe8a57dfc98548fe0315492f362067d8925f6e735295c6"
 );
 
 // Helper function to validate an account ID string
@@ -88,6 +88,11 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
   
   // Check if we have operator credentials - if not, we can't properly verify tokens
   const hasOperator = client && client.operatorAccountId && client.operatorPublicKey;
+  console.log("Checking operator status:", { 
+    hasOperator, 
+    operatorId: client?.operatorAccountId?.toString() 
+  });
+  
   if (!hasOperator) {
     console.log("No operator credentials for Hedera client, using specific token hardcoded lookup for known tokens");
     
@@ -134,7 +139,7 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
   }
   
   try {
-    console.log("Verifying token on Hedera network:", tokenId);
+    console.log("Attempting to verify token on Hedera network with operator ID:", client.operatorAccountId?.toString());
     const token = TokenId.fromString(tokenId);
     
     // Query token info from Hedera with a timeout
@@ -142,6 +147,7 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
       .setTokenId(token)
       .setMaxQueryPayment(new Hbar(0.1));  // Set a reasonable max payment
     
+    console.log("Executing TokenInfoQuery for token:", tokenId);
     const tokenInfo = await query.execute(client);
     
     if (!tokenInfo) {
@@ -159,7 +165,7 @@ export async function verifyTokenOnHedera(tokenId: string): Promise<TokenInfo | 
       tokenType: tokenInfo.tokenType ? tokenInfo.tokenType.toString() : "FUNGIBLE"
     };
     
-    console.log("Token verified on Hedera successfully:", result);
+    console.log("Token verified on Hedera network successfully:", result);
     return result;
   } catch (error) {
     console.error("Error verifying token on Hedera network:", error);
@@ -209,12 +215,18 @@ export async function getAccountTokenBalances(accountId: string): Promise<Map<st
   try {
     // Check if we have operator credentials
     const hasOperator = client && client.operatorAccountId && client.operatorPublicKey;
+    console.log("Checking operator status for token balances:", { 
+      hasOperator, 
+      operatorId: client?.operatorAccountId?.toString() 
+    });
+    
     if (!hasOperator) {
       console.log("No operator credentials for Hedera client, using hardcoded balances for development");
       
       // For demonstration and testing, we can return hardcoded balances for known account IDs
       // This allows the app to function without operator credentials in development
       if (accountId === "0.0.123456") {
+        console.log("Using hardcoded balances for demo account: 0.0.123456");
         const result = new Map<string, number>();
         result.set("0.0.786931", 1000);
         result.set("0.0.8052597", 500);
@@ -225,14 +237,16 @@ export async function getAccountTokenBalances(accountId: string): Promise<Map<st
       return new Map<string, number>();
     }
     
-    console.log("Fetching token balances for account:", accountId);
+    console.log("Attempting to fetch token balances for account:", accountId, "with operator:", client.operatorAccountId?.toString());
     const account = AccountId.fromString(accountId);
     
     const query = new AccountBalanceQuery()
       .setAccountId(account)
       .setMaxQueryPayment(new Hbar(0.1));  // Set a reasonable max payment
     
+    console.log("Executing AccountBalanceQuery for account:", accountId);
     const accountBalance = await query.execute(client);
+    console.log("AccountBalanceQuery executed successfully");
     
     // Convert to a regular Map for easier use
     const result = new Map<string, number>();
@@ -242,11 +256,20 @@ export async function getAccountTokenBalances(accountId: string): Promise<Map<st
       return result;
     }
     
+    console.log("Raw token balance data:", accountBalance.tokens);
     const tokenBalances = accountBalance.tokens._map;
     
-    tokenBalances?.forEach((balance, tokenId) => {
+    if (!tokenBalances) {
+      console.log("No token balances map available");
+      return result;
+    }
+    
+    console.log("Processing token balances map with size:", tokenBalances.size);
+    
+    tokenBalances.forEach((balance, tokenId) => {
       // Convert Long to number
       const balanceNumber = Number(balance.toString());
+      console.log(`Token ${tokenId} has balance:`, balanceNumber);
       
       // Only add tokens with a non-zero balance
       if (balanceNumber > 0) {
@@ -261,11 +284,12 @@ export async function getAccountTokenBalances(accountId: string): Promise<Map<st
     
     // For development, provide hardcoded test balances as fallback
     if (process.env.NODE_ENV !== 'production') {
-      console.log("Using fallback balances for development");
+      console.log("Error occurred, using fallback balances for development");
       const result = new Map<string, number>();
       
       // Only do this for specific accounts to avoid confusion
       if (accountId === "0.0.123456") {
+        console.log("Using hardcoded fallback balances for demo account: 0.0.123456");
         result.set("0.0.786931", 1000);
         result.set("0.0.8052597", 500);
         result.set("0.0.8397255", 750);

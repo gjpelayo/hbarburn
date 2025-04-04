@@ -901,52 +901,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // In development mode, accept the token ID even if verification fails
-      if (process.env.NODE_ENV !== 'production') {
-        console.log("Accepting unverified token in development mode:", tokenId);
-        return res.json({
-          isValid: true,
-          tokenInfo: {
-            tokenId,
-            name: `Token ${tokenId}`,
-            symbol: "TKN",
-            decimals: 0,
-            totalSupply: 1000000,
-            isDeleted: false,
-            tokenType: "FUNGIBLE"
-          }
-        });
-      }
-      
-      // In production, reject unverified tokens
-      return res.status(404).json({ 
-        message: "Token not found on Hedera network",
-        isValid: false
+      // Reject tokens that can't be verified
+      console.log("Token could not be verified on Hedera network:", tokenId);
+      return res.json({
+        isValid: false,
+        message: "Token ID could not be verified on the Hedera network",
+        tokenId: tokenId
       });
     } catch (error) {
       console.error("Token verification error:", error);
       
-      // For development, don't fail verification on errors
-      if (process.env.NODE_ENV !== 'production') {
-        const { tokenId } = req.params;
-        console.log("Error during verification but accepting in development mode:", tokenId);
-        return res.json({
-          isValid: true,
-          tokenInfo: {
-            tokenId,
-            name: `Token ${tokenId}`,
-            symbol: "TKN",
-            decimals: 0,
-            totalSupply: 1000000,
-            isDeleted: false,
-            tokenType: "FUNGIBLE"
-          }
-        });
-      }
-      
-      return res.status(500).json({ 
-        message: error instanceof Error ? error.message : "Error verifying token",
-        isValid: false
+      // Reject tokens that cause errors during verification
+      const { tokenId } = req.params;
+      console.log("Error during verification - rejecting token:", tokenId);
+      return res.json({
+        isValid: false,
+        message: "Error verifying token on the Hedera network",
+        tokenId: tokenId
       });
     }
   });
@@ -965,10 +936,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Try to fetch real token balances using Hedera SDK
         const tokenBalances = await getAccountTokenBalances(accountId);
         
-        // If we're in development/testing and there are no real balances, use mocked data
-        if (tokenBalances.size === 0 && process.env.NODE_ENV !== 'production') {
-          const mockedTokens = await storage.getTokensByAccountId(accountId);
-          return res.json(mockedTokens);
+        // If there are no real balances, return an empty array
+        if (tokenBalances.size === 0) {
+          return res.json([]);
         }
         
         // Convert token balances to the right format
@@ -1003,11 +973,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (hederaError) {
         console.error("Hedera error fetching token balances:", hederaError);
         
-        // Fallback to mocked data during development/testing
-        if (process.env.NODE_ENV !== 'production') {
-          const mockedTokens = await storage.getTokensByAccountId(accountId);
-          return res.json(mockedTokens);
-        }
+        // Don't fall back to mocked data, return error
+        console.error("Unable to fetch token balances from Hedera network");
         
         // In production, surface the error
         return res.status(500).json({ message: "Failed to fetch token balances from Hedera" });
@@ -1375,14 +1342,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (balanceError) {
         console.error("Error checking token balance:", balanceError);
         
-        // If we can't verify balance in development, continue with the redemption
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn("Skipping balance check in development mode");
-        } else {
-          return res.status(500).json({
-            message: "Unable to verify token balance"
-          });
-        }
+        // Do not skip balance checks, always verify token balances
+        return res.status(500).json({
+          message: "Unable to verify token balance on the Hedera network"
+        });
       }
       
       // Validate with schema
@@ -1446,12 +1409,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // If the transaction ID is valid, update it with the formatted version
             validatedData.transactionId = formattedTxId;
           } catch (formatError) {
-            // Only enforce in production
-            if (process.env.NODE_ENV === 'production') {
-              return res.status(400).json({
-                message: "Invalid transaction ID format"
-              });
-            }
+            // Always enforce, even in development
+            return res.status(400).json({
+              message: "Invalid transaction ID format"
+            });
           }
           
           // If status is being changed to "processing", add a fulfillment update
@@ -1465,14 +1426,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (txError) {
           console.error("Error processing transaction:", txError);
           
-          // In development, we allow unverified transactions
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn("Skipping transaction verification in development mode");
-          } else {
-            return res.status(400).json({
-              message: "Invalid transaction ID or unable to verify transaction"
-            });
-          }
+          // Always require valid transactions, even in development
+          return res.status(400).json({
+            message: "Invalid transaction ID or unable to verify transaction"
+          });
         }
       }
       
