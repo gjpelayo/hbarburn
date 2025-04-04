@@ -94,40 +94,29 @@ passport.use(
 // This is the key part - serialization/deserialization needs to handle both wallet and regular users
 passport.serializeUser((user, done) => {
   console.log("Serializing user:", user.id, user.accountId || '(no accountId)');
-  if (user.accountId) {
-    // For wallet users, serialize the accountId as a string with prefix
-    done(null, `wallet:${user.accountId}`);
-  } else {
-    // For regular users, serialize the numeric ID
-    done(null, `id:${user.id}`);
+  try {
+    // Just serialize the user ID directly - both user types have an ID
+    // This approach is simpler and less error-prone
+    done(null, user.id);
+  } catch (error) {
+    console.error("Error serializing user:", error);
+    done(error);
   }
 });
 
-passport.deserializeUser(async (serialized: string, done) => {
+passport.deserializeUser(async (id: number, done) => {
   try {
-    console.log("Deserializing user from:", serialized);
+    console.log("Deserializing user from ID:", id);
     
-    // Extract the type and value from the serialized string
-    const [type, value] = serialized.split(':');
-    
-    let user;
-    if (type === 'wallet') {
-      // Handle wallet users - deserialize by accountId
-      user = await storage.getUserByAccountId(value);
-      console.log("Deserializing wallet user:", value, "Result:", user ? "Found" : "Not found");
-    } else if (type === 'id') {
-      // Handle regular users - deserialize by ID
-      const id = parseInt(value, 10);
-      user = await storage.getUser(id);
-      console.log("Deserializing ID user:", id, "Result:", user ? "Found" : "Not found");
-    } else {
-      return done(new Error(`Unknown serialization type: ${type}`));
-    }
+    // Simply look up user by ID - much more reliable
+    const user = await storage.getUser(id);
     
     if (!user) {
-      return done(new Error('User not found'));
+      console.error("Deserialize failed - user not found with ID:", id);
+      return done(null, false); // Return false for user not found instead of an error
     }
     
+    console.log("Successfully deserialized user:", user.id);
     return done(null, user);
   } catch (error) {
     console.error("Error deserializing user:", error);

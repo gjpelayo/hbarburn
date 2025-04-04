@@ -191,35 +191,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wallet-based authentication route
   app.post("/api/auth/wallet", async (req, res) => {
     try {
+      console.log("=== BEGIN WALLET AUTHENTICATION ===");
+      console.log("Request body:", req.body);
+      console.log("Session ID before auth:", req.sessionID);
+      
       const { accountId } = walletAuthSchema.parse(req.body);
       
       // Create or get a user based on the wallet's account ID
       const user = await storage.createOrGetWalletUser(accountId);
+      console.log("User created/retrieved from storage:", user.id, user.accountId);
       
-      // Store user in session
+      // Use the same reliable approach as in signature auth and test-login
+      
+      // 1. First, manually set session properties
       req.session.user = user;
       req.session.isLoggedIn = true;
       
-      // Save the session first to ensure it's stored before passport login
-      req.session.save((err) => {
-        if (err) {
-          console.error("Error saving session:", err);
-          return res.status(500).json({ message: "Session save failed" });
-        }
-        
-        // Then login with passport
+      // 2. Force session save - IMPORTANT!
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("❌ Session save error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Session saved successfully");
+            resolve();
+          }
+        });
+      });
+      
+      // 3. Then use req.login to make Passport aware of the user
+      await new Promise<void>((resolve, reject) => {
         req.login(user, (err) => {
           if (err) {
-            console.error("Error logging in with passport:", err);
-            return res.status(500).json({ message: "Wallet login failed" });
+            console.error("❌ Passport login error:", err);
+            reject(err);
+          } else {
+            console.log("✅ Passport login successful");
+            resolve();
           }
-          
-          console.log("Successfully authenticated wallet user:", user.id, user.accountId);
-          
-          // Don't return password in response
-          const { password: _, ...userWithoutPassword } = user;
-          res.json(userWithoutPassword);
         });
+      });
+      
+      // Check authentication status after login
+      console.log("=== WALLET AUTH RESULT ===");
+      console.log("- Session ID:", req.sessionID);
+      console.log("- Authenticated:", req.isAuthenticated());
+      console.log("- Session user:", req.session.user?.id);
+      console.log("- Passport user:", req.user?.id);
+      
+      // Don't return password in response
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        ...userWithoutPassword,
+        authenticated: req.isAuthenticated(),
+        sessionID: req.sessionID
       });
     } catch (error) {
       console.error("Wallet login error:", error);
