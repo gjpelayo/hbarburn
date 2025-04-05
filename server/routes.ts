@@ -451,6 +451,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Simplified auth status endpoint
+  app.get("/api/auth/status", (req, res) => {
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      res.status(200).json({
+        authenticated: req.isAuthenticated(),
+        hasSession: !!req.session,
+        user: req.user || null,
+        sessionID: req.sessionID
+      });
+    } else {
+      res.status(200).send(req.session ? 'Session exists' : 'No session');
+    }
+  });
+  
   // Endpoint to create a test cookie and verify it works
   app.get("/api/auth/test-cookie", (req, res) => {
     console.log("=== SETTING TEST COOKIE ===");
