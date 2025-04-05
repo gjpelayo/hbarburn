@@ -23,21 +23,26 @@ const app = express();
 
 // Configure CORS to work with credentials
 // Set 'trust proxy' at the top level before any middleware
+// This is CRITICAL for cookies to work properly when running behind Replit's proxy
 app.set("trust proxy", 1);
 
+// Determine the current domain for CORS
+const getOrigin = () => {
+  // In Replit, we can use any origin since it's controlled by the platform
+  return true;
+};
+
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow any origin (the browser will enforce CORS)
-    callback(null, true);
-  },
-  credentials: true,
+  origin: getOrigin,
+  credentials: true, // This is essential for cookies to be sent/received
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'],
+  exposedHeaders: ['Set-Cookie'], // Allows browser to see Set-Cookie header
 }));
 
 // Parse cookies - we need cookie-parser before session middleware
-app.use(cookieParser('hedera-token-redemption-secret')); // Same secret as session for signed cookies
+const SESSION_SECRET = process.env.SESSION_SECRET || 'hedera-token-redemption-secret';
+app.use(cookieParser(SESSION_SECRET)); // Same secret as session for signed cookies
 
 // Body parsing middleware
 app.use(express.json());
@@ -46,14 +51,16 @@ app.use(express.urlencoded({ extended: false }));
 // IMPORTANT: Set up session middleware BEFORE passport
 const isProduction = process.env.NODE_ENV === 'production';
 const sessionSettings: session.SessionOptions = {
-  secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
+  secret: SESSION_SECRET,
   resave: false,
-  saveUninitialized: true, // Changed to true to ensure all sessions are saved
+  saveUninitialized: true, // Keep true to ensure all sessions are saved
+  name: 'hedera-token-session', // Custom cookie name to avoid conflicts
   cookie: {
     httpOnly: true,
-    secure: false,       // Don't require HTTPS in development
-    sameSite: 'lax',     // Less restrictive SameSite setting for development
-    maxAge: 604800000    // 7 days
+    secure: false, // Set to false to ensure cookies work in Replit's environment
+    sameSite: 'lax', // Less restrictive SameSite setting for better compatibility
+    maxAge: 604800000, // 7 days
+    path: '/',
   },
   store: storage.sessionStore
 };
@@ -157,13 +164,33 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  
+  // Improved error handling middleware with detailed logging
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('==========================================');
+    console.error('SERVER ERROR:', err);
+    console.error('Request URL:', req.originalUrl);
+    console.error('Request Method:', req.method);
+    console.error('Request Headers:', req.headers);
+    console.error('User Agent:', req.headers['user-agent']);
+    console.error('Request Body:', req.body);
+    console.error('Session ID:', req.sessionID);
+    console.error('Authenticated:', req.isAuthenticated());
+    console.error('Stack Trace:', err.stack);
+    console.error('==========================================');
+    
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    res.status(status).json({
+      error: {
+        message: message,
+        status: status,
+        path: req.originalUrl,
+        timestamp: new Date().toISOString(),
+        stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
+      }
+    });
   });
 
   // importantly only setup vite in development and after
@@ -185,5 +212,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    // Log Replit domain for debugging
+    const replitSlug = process.env.REPL_SLUG || '';
+    const replitOwner = process.env.REPL_OWNER || '';
+    const replitDomain = `${replitSlug}.${replitOwner}.repl.co`;
+    log(`Replit domain: ${replitDomain}`);
   });
 })();

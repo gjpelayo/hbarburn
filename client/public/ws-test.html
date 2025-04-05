@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2d3748;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .connecting {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .button {
+      background-color: #4299e1;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .button:disabled {
+      background-color: #a0aec0;
+      cursor: not-allowed;
+    }
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    .message {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    .message.received {
+      background-color: #e2e8f0;
+    }
+    .message.sent {
+      background-color: #bee3f8;
+    }
+    .ping {
+      background-color: #feebc8;
+    }
+    .pong {
+      background-color: #fed7aa;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebSocket Connection Test</h1>
+  
+  <div class="card">
+    <div id="status" class="status disconnected">Disconnected</div>
+    
+    <div>
+      <button id="connectBtn" class="button">Connect</button>
+      <button id="disconnectBtn" class="button" disabled>Disconnect</button>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Messages</h2>
+    <div id="messages"></div>
+    
+    <div style="display: flex;">
+      <input type="text" id="messageInput" style="flex: 1; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;" placeholder="Type a message...">
+      <button id="sendBtn" class="button" style="margin-left: 10px;" disabled>Send</button>
+    </div>
+    
+    <div style="margin-top: 10px;">
+      <button id="pingBtn" class="button" disabled>Send Ping</button>
+      <button id="subscribeBtn" class="button" disabled>Subscribe to Updates</button>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // DOM Elements
+      const statusEl = document.getElementById('status');
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      const messagesEl = document.getElementById('messages');
+      const messageInput = document.getElementById('messageInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const pingBtn = document.getElementById('pingBtn');
+      const subscribeBtn = document.getElementById('subscribeBtn');
+      
+      // WebSocket instance
+      let socket = null;
+      
+      // Update UI state based on connection status
+      function updateUIState(state) {
+        statusEl.className = 'status ' + state;
+        
+        switch (state) {
+          case 'connected':
+            statusEl.textContent = 'Connected';
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            sendBtn.disabled = false;
+            pingBtn.disabled = false;
+            subscribeBtn.disabled = false;
+            break;
+          case 'disconnected':
+            statusEl.textContent = 'Disconnected';
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            sendBtn.disabled = true;
+            pingBtn.disabled = true;
+            subscribeBtn.disabled = true;
+            break;
+          case 'connecting':
+            statusEl.textContent = 'Connecting...';
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            sendBtn.disabled = true;
+            pingBtn.disabled = true;
+            subscribeBtn.disabled = true;
+            break;
+        }
+      }
+      
+      // Add message to the messages container
+      function addMessage(message, type = 'received') {
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${type}`;
+        
+        // Format timestamp
+        const timestamp = new Date().toISOString();
+        
+        if (typeof message === 'object') {
+          // Handle special message types
+          if (message.type === 'ping' || message.type === 'pong') {
+            messageEl.className += ` ${message.type}`;
+          }
+          
+          // Convert object to JSON string
+          messageEl.textContent = `[${timestamp}] ${JSON.stringify(message, null, 2)}`;
+        } else {
+          messageEl.textContent = `[${timestamp}] ${message}`;
+        }
+        
+        messagesEl.appendChild(messageEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+      
+      // Initialize WebSocket connection
+      function connect() {
+        try {
+          updateUIState('connecting');
+          
+          // Determine the correct protocol (ws or wss) based on the current page protocol
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${protocol}//${window.location.host}/ws`;
+          
+          addMessage(`Connecting to ${wsUrl}...`);
+          socket = new WebSocket(wsUrl);
+          
+          // Set up event handlers
+          socket.onopen = function(event) {
+            addMessage('WebSocket connection established');
+            updateUIState('connected');
+          };
+          
+          socket.onmessage = function(event) {
+            try {
+              const data = JSON.parse(event.data);
+              addMessage(data, 'received');
+            } catch (error) {
+              addMessage(`Received: ${event.data}`, 'received');
+            }
+          };
+          
+          socket.onclose = function(event) {
+            addMessage(`WebSocket connection closed: ${event.code} ${event.reason}`);
+            updateUIState('disconnected');
+            socket = null;
+          };
+          
+          socket.onerror = function(error) {
+            addMessage(`WebSocket error: ${error}`, 'error');
+            updateUIState('disconnected');
+          };
+        } catch (error) {
+          addMessage(`Error establishing WebSocket connection: ${error.message}`, 'error');
+          updateUIState('disconnected');
+        }
+      }
+      
+      // Close WebSocket connection
+      function disconnect() {
+        if (socket) {
+          socket.close();
+          // The onclose handler will update UI
+        }
+      }
+      
+      // Send a message through the WebSocket
+      function sendMessage(message) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          let messageToSend = message;
+          
+          // If message is an object, convert to JSON string
+          if (typeof message === 'object') {
+            messageToSend = JSON.stringify(message);
+          }
+          
+          socket.send(messageToSend);
+          addMessage(message, 'sent');
+          
+          // Clear the input field
+          messageInput.value = '';
+        } else {
+          addMessage('Cannot send message: WebSocket is not connected', 'error');
+        }
+      }
+      
+      // Event listeners
+      connectBtn.addEventListener('click', connect);
+      disconnectBtn.addEventListener('click', disconnect);
+      
+      sendBtn.addEventListener('click', function() {
+        const message = messageInput.value.trim();
+        if (message) {
+          try {
+            // Try to parse as JSON if it starts with { or [
+            if ((message.startsWith('{') && message.endsWith('}')) || 
+                (message.startsWith('[') && message.endsWith(']'))) {
+              const jsonMessage = JSON.parse(message);
+              sendMessage(jsonMessage);
+            } else {
+              sendMessage(message);
+            }
+          } catch (error) {
+            // If parsing fails, send as plain text
+            sendMessage(message);
+          }
+        }
+      });
+      
+      messageInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          sendBtn.click();
+        }
+      });
+      
+      pingBtn.addEventListener('click', function() {
+        sendMessage({
+          type: 'ping',
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      subscribeBtn.addEventListener('click', function() {
+        sendMessage({
+          type: 'subscribe',
+          channel: 'updates',
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Initialize UI
+      updateUIState('disconnected');
+    });
+  </script>
+</body>
+</html>

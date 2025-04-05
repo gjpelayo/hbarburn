@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { 
@@ -151,6 +152,99 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for debugging
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      serverInfo: {
+        domain: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
+        environment: process.env.NODE_ENV || 'development'
+      }
+    });
+  });
+  
+  // WebSocket test broadcast endpoint
+  app.get('/api/ws-test', (req, res) => {
+    if (!(app as any).broadcastToClients) {
+      return res.status(500).json({ 
+        status: 'error', 
+        message: 'WebSocket broadcast function not available',
+      });
+    }
+    
+    const testMessage = {
+      type: 'test',
+      message: 'This is a test broadcast message',
+      timestamp: new Date().toISOString(),
+      source: '/api/ws-test endpoint'
+    };
+    
+    const clientCount = (app as any).broadcastToClients(testMessage);
+    
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Test message broadcast to WebSocket clients',
+      clientCount,
+      sentMessage: testMessage
+    });
+  });
+  
+  // WebSocket client test page
+  app.get('/ws-client', (req, res) => {
+    res.sendFile('public/ws-test.html', { root: './client' });
+  });
+  
+  // Server-side rendered page for direct testing
+  app.get('/server-test', (req, res) => {
+    res.status(200).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Server Test</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .status { padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+            .success { background-color: #dff0d8; border: 1px solid #d6e9c6; }
+            .info { background-color: #d9edf7; border: 1px solid #bce8f1; }
+            h1 { color: #333; }
+            pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Server Status Test</h1>
+            
+            <div class="status success">
+              <strong>Server is running!</strong><br>
+              Time: ${new Date().toISOString()}
+            </div>
+            
+            <div class="status info">
+              <strong>Session Information:</strong><br>
+              Session ID: ${req.sessionID || 'Not available'}
+            </div>
+            
+            <h2>Environment</h2>
+            <pre>NODE_ENV: ${process.env.NODE_ENV || 'development'}
+REPLIT: ${process.env.REPL_SLUG ? 'Yes' : 'No'}
+Domain: ${process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost'}</pre>
+            
+            <h2>Test APIs</h2>
+            <ul>
+              <li><a href="/api/health" target="_blank">/api/health</a> - Basic health check</li>
+              <li><a href="/api/auth/status" target="_blank">/api/auth/status</a> - Auth status</li>
+              <li><a href="/api/auth/test-cookie" target="_blank">/api/auth/test-cookie</a> - Set test cookie</li>
+              <li><a href="/api/auth/check-test-cookie" target="_blank">/api/auth/check-test-cookie</a> - Check test cookie</li>
+              <li><a href="/api/ws-test" target="_blank">/api/ws-test</a> - Test WebSocket broadcast</li>
+              <li><a href="/ws-client" target="_blank">/ws-client</a> - WebSocket client test page</li>
+            </ul>
+          </div>
+        </body>
+      </html>
+    `);
+  });
   // Set up auth routes (session/passport setup is now in index.ts)
   setupAuth(app);
 
@@ -387,6 +481,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get current admin user
+  app.get("/api/admin/user", isAuthenticated, (req, res) => {
+    // Get user from either session or passport
+    const user = req.user || req.session.user;
+    
+    // Ensure we have a user and they are an admin
+    if (!user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (!user.isAdmin) {
+      return res.status(403).json({ message: "Not an admin user" });
+    }
+    
+    // Return user without password
+    const { password, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  });
+
   // Admin logout endpoint (same behavior as regular logout)
   app.post("/api/admin/logout", (req, res) => {
     // First logout with passport if authenticated
@@ -2119,5 +2232,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server on a separate path to avoid conflicts with Vite's HMR
+  // This is critical to prevent the [plugin:runtime-error-plugin] error
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',  // A distinct path for our WebSocket connection
+    clientTracking: true
+  });
+  
+  // Log when WebSocket server is set up
+  console.log('WebSocket server is listening');
+  
+  // Create WebSocket broadcast utility function
+  const broadcastToClients = (message: any, filter?: (client: WebSocket) => boolean) => {
+    const messageString = typeof message === 'string' ? message : JSON.stringify(message);
+    let clientCount = 0;
+    
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && (!filter || filter(client))) {
+        client.send(messageString);
+        clientCount++;
+      }
+    });
+    
+    console.log(`Broadcast message to ${clientCount} clients`);
+    return clientCount;
+  };
+  
+  // Export the broadcast function to be used in other routes
+  (app as any).broadcastToClients = broadcastToClients;
+  
+  // Set up connection handling
+  wss.on('connection', (ws, req) => {
+    const ip = req.socket.remoteAddress;
+    console.log(`WebSocket client connected from ${ip}`);
+    
+    // Add session ID to websocket instance for tracking
+    (ws as any).sessionId = req.headers.cookie ? 
+      extractSessionIdFromCookie(req.headers.cookie) : 
+      'anonymous-' + Math.random().toString(36).substring(2, 15);
+    
+    // Send initial connection success message
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ 
+        type: 'connection', 
+        status: 'success',
+        message: 'Connected to Hedera token redemption server',
+        timestamp: new Date().toISOString(),
+        sessionId: (ws as any).sessionId
+      }));
+    }
+    
+    // Set up heartbeat to keep connection alive
+    const interval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() }));
+      } else {
+        clearInterval(interval);
+      }
+    }, 30000); // 30 seconds
+    
+    // Set up message handling
+    ws.on('message', (message) => {
+      try {
+        console.log(`WebSocket message received: ${message}`);
+        const parsedMessage = JSON.parse(message.toString());
+        
+        // Handle different message types
+        switch (parsedMessage.type) {
+          case 'ping':
+            // Respond to ping with pong
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ 
+                type: 'pong', 
+                timestamp: new Date().toISOString() 
+              }));
+            }
+            break;
+            
+          case 'subscribe':
+            // Handle subscription requests (e.g., to specific events)
+            if (ws.readyState === WebSocket.OPEN) {
+              (ws as any).subscriptions = (ws as any).subscriptions || [];
+              (ws as any).subscriptions.push(parsedMessage.channel);
+              ws.send(JSON.stringify({ 
+                type: 'subscription',
+                status: 'success',
+                channel: parsedMessage.channel,
+                message: `Subscribed to ${parsedMessage.channel}`
+              }));
+            }
+            break;
+            
+          default:
+            // Echo generic messages back as acknowledgment
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ 
+                type: 'acknowledgment',
+                received: parsedMessage,
+                timestamp: new Date().toISOString()
+              }));
+            }
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+            type: 'error',
+            message: 'Failed to process message',
+            details: error instanceof Error ? error.message : String(error)
+          }));
+        }
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket client disconnected: ${code} ${reason.toString()}`);
+      clearInterval(interval);
+    });
+    
+    // Handle errors
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+      clearInterval(interval);
+    });
+  });
+  
+  // Helper function to extract session ID from cookie string
+  function extractSessionIdFromCookie(cookieString: string): string {
+    const sessionMatch = cookieString.match(/hedera-token-session=([^;]+)/);
+    return sessionMatch ? sessionMatch[1] : 'unknown-session';
+  }
+  
+  // Log when server is ready
+  wss.on('listening', () => {
+    console.log('WebSocket server is listening');
+  });
+  
   return httpServer;
 }
