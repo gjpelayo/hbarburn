@@ -152,15 +152,107 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint for debugging
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      serverInfo: {
-        domain: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
-        environment: process.env.NODE_ENV || 'development'
+  // Root endpoint for basic availability check
+  app.get("/", (req, res) => {
+    console.log(`ROOT ENDPOINT ACCESSED at ${new Date().toISOString()} from ${req.ip}`);
+    res.status(200).send(`
+      <html>
+        <head>
+          <title>Server Test Page</title>
+          <style>
+            body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
+            h1 { color: #4338ca; }
+            .box { border: 1px solid #ddd; padding: 1rem; margin: 1rem 0; border-radius: 0.5rem; }
+            .success { background: #ecfdf5; border-color: #10b981; }
+            .links a { margin-right: 1rem; }
+          </style>
+        </head>
+        <body>
+          <h1>Hedera Token Redemption Server</h1>
+          <div class="box success">
+            <h2>✅ Server is running correctly</h2>
+            <p>Timestamp: ${new Date().toISOString()}</p>
+            <p>Environment: ${process.env.NODE_ENV}</p>
+            <p>Process ID: ${process.pid}</p>
+            <p>Client IP: ${req.ip}</p>
+          </div>
+          <div class="links">
+            <a href="/api/health">Health Check API</a>
+            <a href="/api/ws-test">WebSocket Test</a>
+            <a href="/ws-test.html">WebSocket Test Page</a>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+  
+  // Enhanced health check endpoint with diagnostics
+  app.get("/api/health", (req, res) => {
+    console.log(`HEALTH CHECK REQUESTED at ${new Date().toISOString()} from ${req.ip}`);
+    console.log(`Headers: ${JSON.stringify(req.headers)}`);
+    // Attempt to load OS module dynamically
+    import('os').then(os => {
+      try {
+        const networkInterfaces = os.networkInterfaces();
+        const firstNonLocalInterface = Object.values(networkInterfaces)
+          .flat()
+          .filter(Boolean)
+          .find(iface => iface && !iface.internal && iface.family === 'IPv4');
+          
+        res.status(200).json({ 
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          uptime: process.uptime() + 's',
+          process: {
+            pid: process.pid,
+            nodeVersion: process.version,
+            memoryUsage: process.memoryUsage(),
+          },
+          system: {
+            hostname: os.hostname(),
+            platform: os.platform(),
+            cpus: os.cpus().length,
+            loadAvg: os.loadavg(),
+            freeMemory: os.freemem(),
+            totalMemory: os.totalmem(),
+          },
+          network: {
+            primaryInterface: firstNonLocalInterface ? {
+              address: firstNonLocalInterface.address,
+              family: firstNonLocalInterface.family,
+              netmask: firstNonLocalInterface.netmask,
+              mac: firstNonLocalInterface.mac,
+            } : 'None detected',
+          },
+          serverInfo: {
+            domain: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
+            environment: process.env.NODE_ENV || 'development'
+          }
+        });
+      } catch (err) {
+        // Fallback if we can't get system info
+        res.status(200).json({ 
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          uptime: process.uptime() + 's',
+          serverInfo: {
+            domain: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
+            environment: process.env.NODE_ENV || 'development'
+          },
+          error: 'Limited system information available: ' + (err instanceof Error ? err.message : String(err))
+        });
       }
+    }).catch(err => {
+      // Fallback if we can't import the OS module
+      res.status(200).json({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        serverInfo: {
+          domain: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
+          environment: process.env.NODE_ENV || 'development'
+        },
+        error: 'OS module not available: ' + (err instanceof Error ? err.message : String(err))
+      });
     });
   });
   

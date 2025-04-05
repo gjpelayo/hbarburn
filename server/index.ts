@@ -206,16 +206,28 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`==== SERVER STARTED SUCCESSFULLY ====`);
+    console.log(`Server listening on http://0.0.0.0:${port}`);
+    
+    // Log environment variables for debugging
+    console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`REPL_SLUG: ${process.env.REPL_SLUG || 'not set'}`);
+    console.log(`REPL_OWNER: ${process.env.REPL_OWNER || 'not set'}`);
+    console.log(`REPL_ID: ${process.env.REPL_ID || 'not set'}`);
+    
     // Log Replit domain for debugging
     const replitSlug = process.env.REPL_SLUG || '';
     const replitOwner = process.env.REPL_OWNER || '';
     const replitDomain = `${replitSlug}.${replitOwner}.repl.co`;
     log(`Replit domain: ${replitDomain}`);
+    
+    // Log server details
+    console.log('=== SERVER CONFIGURATION ===');
+    console.log(`Port: ${port}`);
+    console.log(`Host: 0.0.0.0`);
+    console.log(`Process ID: ${process.pid}`);
+    console.log(`Node version: ${process.version}`);
+    console.log(`Started at: ${new Date().toISOString()}`);
   });
 })();
