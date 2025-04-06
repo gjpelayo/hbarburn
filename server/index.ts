@@ -23,26 +23,21 @@ const app = express();
 
 // Configure CORS to work with credentials
 // Set 'trust proxy' at the top level before any middleware
-// This is CRITICAL for cookies to work properly when running behind Replit's proxy
 app.set("trust proxy", 1);
 
-// Determine the current domain for CORS
-const getOrigin = () => {
-  // In Replit, we can use any origin since it's controlled by the platform
-  return true;
-};
-
 app.use(cors({
-  origin: getOrigin,
-  credentials: true, // This is essential for cookies to be sent/received
+  origin: function(origin, callback) {
+    // Allow any origin (the browser will enforce CORS)
+    callback(null, true);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'], // Allows browser to see Set-Cookie header
+  exposedHeaders: ['Set-Cookie'],
 }));
 
 // Parse cookies - we need cookie-parser before session middleware
-const SESSION_SECRET = process.env.SESSION_SECRET || 'hedera-token-redemption-secret';
-app.use(cookieParser(SESSION_SECRET)); // Same secret as session for signed cookies
+app.use(cookieParser('hedera-token-redemption-secret')); // Same secret as session for signed cookies
 
 // Body parsing middleware
 app.use(express.json());
@@ -51,16 +46,14 @@ app.use(express.urlencoded({ extended: false }));
 // IMPORTANT: Set up session middleware BEFORE passport
 const isProduction = process.env.NODE_ENV === 'production';
 const sessionSettings: session.SessionOptions = {
-  secret: SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'hedera-token-redemption-secret',
   resave: false,
-  saveUninitialized: true, // Keep true to ensure all sessions are saved
-  name: 'hedera-token-session', // Custom cookie name to avoid conflicts
+  saveUninitialized: true, // Changed to true to ensure all sessions are saved
   cookie: {
     httpOnly: true,
-    secure: false, // Set to false to ensure cookies work in Replit's environment
-    sameSite: 'lax', // Less restrictive SameSite setting for better compatibility
-    maxAge: 604800000, // 7 days
-    path: '/',
+    secure: false,       // Don't require HTTPS in development
+    sameSite: 'lax',     // Less restrictive SameSite setting for development
+    maxAge: 604800000    // 7 days
   },
   store: storage.sessionStore
 };
@@ -164,33 +157,13 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
-  
-  // Improved error handling middleware with detailed logging
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('==========================================');
-    console.error('SERVER ERROR:', err);
-    console.error('Request URL:', req.originalUrl);
-    console.error('Request Method:', req.method);
-    console.error('Request Headers:', req.headers);
-    console.error('User Agent:', req.headers['user-agent']);
-    console.error('Request Body:', req.body);
-    console.error('Session ID:', req.sessionID);
-    console.error('Authenticated:', req.isAuthenticated());
-    console.error('Stack Trace:', err.stack);
-    console.error('==========================================');
-    
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({
-      error: {
-        message: message,
-        status: status,
-        path: req.originalUrl,
-        timestamp: new Date().toISOString(),
-        stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
-      }
-    });
+    res.status(status).json({ message });
+    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -206,28 +179,11 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`==== SERVER STARTED SUCCESSFULLY ====`);
-    console.log(`Server listening on http://0.0.0.0:${port}`);
-    
-    // Log environment variables for debugging
-    console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`REPL_SLUG: ${process.env.REPL_SLUG || 'not set'}`);
-    console.log(`REPL_OWNER: ${process.env.REPL_OWNER || 'not set'}`);
-    console.log(`REPL_ID: ${process.env.REPL_ID || 'not set'}`);
-    
-    // Log Replit domain for debugging
-    const replitSlug = process.env.REPL_SLUG || '';
-    const replitOwner = process.env.REPL_OWNER || '';
-    const replitDomain = `${replitSlug}.${replitOwner}.repl.co`;
-    log(`Replit domain: ${replitDomain}`);
-    
-    // Log server details
-    console.log('=== SERVER CONFIGURATION ===');
-    console.log(`Port: ${port}`);
-    console.log(`Host: 0.0.0.0`);
-    console.log(`Process ID: ${process.pid}`);
-    console.log(`Node version: ${process.version}`);
-    console.log(`Started at: ${new Date().toISOString()}`);
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
   });
 })();
