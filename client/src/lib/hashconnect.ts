@@ -24,12 +24,35 @@ import { initializeClient, client } from './hedera';
 import { HashConnect } from 'hashconnect';
 
 // App metadata for HashConnect
-const appMetadata = {
-  name: "Token Redemption Platform",
-  description: "Hedera token redemption platform for physical goods",
-  icon: window.location.origin + "/favicon.ico",
-  url: window.location.origin
+// Make sure we have safe default values that don't depend on window.location
+// which might not be available in certain contexts
+const getAppMetadata = () => {
+  let baseUrl = "https://token-redemption-platform.replit.app";
+  let iconUrl = "https://token-redemption-platform.replit.app/favicon.ico";
+  
+  // Try to get the actual origin if available
+  try {
+    if (typeof window !== 'undefined' && window.location && window.location.origin) {
+      console.log("Using window.location.origin:", window.location.origin);
+      baseUrl = window.location.origin;
+      iconUrl = baseUrl + "/favicon.ico";
+    } else {
+      console.log("window.location.origin not available, using fallback URL");
+    }
+  } catch (error) {
+    console.warn("Error accessing window.location:", error);
+  }
+  
+  return {
+    name: "Token Redemption Platform",
+    description: "Hedera token redemption platform for physical goods",
+    icon: iconUrl,
+    url: baseUrl
+  };
 };
+
+// Create app metadata object with safe values
+const appMetadata = getAppMetadata();
 
 // State for tracking connection
 const state = {
@@ -42,48 +65,110 @@ const state = {
   availableExtension: false
 };
 
+// Check if the HashPack extension is available globally
+const isHashPackInstalled = () => {
+  try {
+    // Check if window.hashpack exists (indicator for HashPack extension)
+    if (typeof window !== 'undefined' && window.hasOwnProperty('hashpack')) {
+      console.log("HashPack detected globally:", window.hashpack);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.warn("Error checking for HashPack extension:", error);
+    return false;
+  }
+};
+
 // Initialize HashConnect
 export async function initializeHashConnect(): Promise<void> {
   try {
     // Check if the object already exists to prevent multiple initializations
-    if (state.hashConnect !== null) return;
+    if (state.hashConnect !== null) {
+      console.log("HashConnect already initialized, reusing instance");
+      return;
+    }
     
     console.log("Initializing HashConnect...");
+    console.log("App metadata:", appMetadata);
+    
+    // Log if HashPack is installed
+    console.log("HashPack installed globally:", isHashPackInstalled());
     
     // Create new instance
-    const hashConnect = new HashConnect();
-    state.hashConnect = hashConnect;
+    try {
+      const hashConnect = new HashConnect();
+      state.hashConnect = hashConnect;
+      console.log("HashConnect instance created successfully");
+    } catch (e) {
+      console.error("Error creating HashConnect instance:", e);
+      throw e;
+    }
     
     // Initialize with app metadata and network
-    // @ts-ignore - The typings expect 0 args but the implementation requires metadata
-    await hashConnect.init(appMetadata);
+    try {
+      console.log("Calling HashConnect instance init with appMetadata:", appMetadata);
+      // @ts-ignore - The typings expect 0 args but the implementation requires metadata
+      await state.hashConnect.init(appMetadata);
+      console.log("HashConnect init completed successfully");
+    } catch (initError) {
+      console.error("Error in HashConnect init:", initError);
+      if (initError instanceof Error) {
+        console.error("Error details:", {
+          message: initError.message,
+          name: initError.name,
+          stack: initError.stack
+        });
+      }
+      throw initError;
+    }
     
     // Generate pairing string
-    // @ts-ignore - Method is not private in the implementation despite typing
-    state.pairingString = hashConnect.generatePairingString();
+    try {
+      console.log("Generating pairing string");
+      // @ts-ignore - Method is not private in the implementation despite typing
+      state.pairingString = state.hashConnect.generatePairingString();
+      console.log("Pairing string generated successfully");
+    } catch (e) {
+      console.error("Error generating pairing string:", e);
+      throw e;
+    }
     
     // Register pairing event
-    hashConnect.pairingEvent.on((data) => {
-      console.log("Pairing event received:", data);
-      state.pairingData = data;
-      
-      if (data.accountIds && data.accountIds.length > 0) {
-        // Get the first account from the pairing data
-        state.accountId = data.accountIds[0];
-        state.isConnected = true;
-        // @ts-ignore - 'topic' property exists in the implementation but not in typings
-        state.topic = data.topic;
+    try {
+      console.log("Registering pairing event handler");
+      state.hashConnect.pairingEvent.on((data) => {
+        console.log("Pairing event received:", data);
+        state.pairingData = data;
         
-        // Store connection data
-        localStorage.setItem("hashpack_account", state.accountId);
-        localStorage.setItem("hashpack_topic", data.topic);
-      }
-    });
+        if (data.accountIds && data.accountIds.length > 0) {
+          // Get the first account from the pairing data
+          state.accountId = data.accountIds[0];
+          state.isConnected = true;
+          // @ts-ignore - 'topic' property exists in the implementation but not in typings
+          state.topic = data.topic;
+          
+          // Store connection data
+          localStorage.setItem("hashpack_account", state.accountId);
+          localStorage.setItem("hashpack_topic", data.topic);
+        }
+      });
+      console.log("Pairing event handler registered successfully");
+    } catch (e) {
+      console.error("Error registering pairing event handler:", e);
+      throw e;
+    }
     
     // Handle connection status change
-    hashConnect.connectionStatusChangeEvent.on((statusData) => {
-      console.log("HashConnect connection status changed:", statusData);
-    });
+    try {
+      console.log("Registering connection status change handler");
+      state.hashConnect.connectionStatusChangeEvent.on((statusData) => {
+        console.log("HashConnect connection status changed:", statusData);
+      });
+      console.log("Connection status change handler registered successfully");
+    } catch (e) {
+      console.error("Error registering connection status change handler:", e);
+    }
     
     // Check for existing connection data
     const savedAccount = localStorage.getItem("hashpack_account");
@@ -98,8 +183,9 @@ export async function initializeHashConnect(): Promise<void> {
     
     // Try to find extension
     try {
+      console.log("Checking if HashPack wallet is available");
       // @ts-ignore - Method exists in actual implementation but not in typings
-      state.availableExtension = await hashConnect.isWalletAvailable();
+      state.availableExtension = await state.hashConnect.isWalletAvailable();
       console.log("HashPack extension available:", state.availableExtension);
     } catch (err) {
       console.warn("Could not check for HashPack extension:", err);
