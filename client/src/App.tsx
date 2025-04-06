@@ -13,8 +13,7 @@ import Home from "@/pages/home";
 import Shop from "@/pages/shop-fixed";
 import OrderTrackingPage from "@/pages/order-tracking";
 import AuthPage from "@/pages/auth-page";
-import SessionTest from "@/pages/session-test";
-import SimpleSessionTest from "@/pages/simple-session-test";
+// Removed test components
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -40,8 +39,7 @@ function Router() {
       <Route path="/shop/:shopId" component={Shop} />
       <Route path="/track" component={OrderTrackingPage} />
       <Route path="/track/:orderId" component={OrderTrackingPage} />
-      <Route path="/session-test" component={SessionTest} />
-      <Route path="/simple-session-test" component={SimpleSessionTest} />
+      {/* Removed test session routes */}
       
       {/* Admin Routes */}
       {/* Admin Auth Route - Temporarily removed for wallet migration */}
