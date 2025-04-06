@@ -19,10 +19,10 @@ export default function AdminAuthPage() {
     return null;
   }
   
-  const handleConnectHashpack = async () => {
+  const handleConnectWalletConnect = async () => {
     setIsConnecting(true);
     try {
-      await connectWallet("hashpack");
+      await connectWallet("walletconnect");
       // After connecting the wallet, we would typically verify on the server
       // that this wallet has admin privileges, then automatically redirect
       navigate("/admin");
@@ -72,22 +72,18 @@ export default function AdminAuthPage() {
                 </Alert>
                 
                 <Button 
-                  onClick={handleConnectHashpack}
+                  onClick={handleConnectWalletConnect}
                   className="w-full flex justify-center items-center gap-2 py-6 text-base"
                   disabled={isConnecting}
                 >
                   {isConnecting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="18" height="18" x="3" y="3" rx="2" />
-                      <path d="M7 7h.01" />
-                      <path d="M17 7h.01" />
-                      <path d="M7 17h.01" />
-                      <path d="M17 17h.01" />
+                    <svg width="20" height="20" viewBox="0 0 96 96" fill="none">
+                      <path d="M25.4995 36.6505C40.0745 22.0765 64.4155 22.0765 78.9915 36.6505L81.2085 38.8675C82.1515 39.8105 82.1515 41.3435 81.2085 42.2855L74.8525 48.6425C74.3815 49.1135 73.614 49.1135 73.143 48.6425L70.093 45.5935C60.2725 35.7735 44.217 35.7735 34.3965 45.5935L31.1855 48.8045C30.7145 49.2755 29.947 49.2755 29.476 48.8045L23.1195 42.4485C22.1765 41.5055 22.1765 39.9725 23.1195 39.0305L25.4995 36.6505ZM89.8255 47.4845L95.449 53.1075C96.392 54.0505 96.392 55.5835 95.449 56.5255L73.1995 78.7775C72.2555 79.7205 70.7235 79.7205 69.7815 78.7775L54.7275 63.7255C54.492 63.49 54.1095 63.49 53.874 63.7255L38.8215 78.7775C37.8775 79.7205 36.3455 79.7205 35.404 78.7775L13.126 56.5255C12.183 55.5835 12.183 54.0505 13.126 53.1075L18.7495 47.4845C19.6935 46.5415 21.2255 46.5415 22.1675 47.4845L37.22 62.5365C37.455 62.772 37.838 62.772 38.0735 62.5365L53.126 47.4845C54.07 46.5415 55.602 46.5415 56.5435 47.4845L71.5965 62.5365C71.832 62.772 72.2145 62.772 72.45 62.5365L87.5025 47.4845C88.4475 46.5415 89.9795 46.5415 89.8255 47.4845Z" fill="currentColor" />
                     </svg>
                   )}
-                  Connect with HashPack
+                  Connect with WalletConnect
                 </Button>
                 
                 <Button 

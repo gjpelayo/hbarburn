@@ -17,13 +17,13 @@ export function WalletConnectHeader() {
   const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false);
   const [location, navigate] = useLocation();
   
-  const handleConnectHashpack = async () => {
+  const handleConnectWalletConnect = async () => {
     try {
-      await connectWallet("hashpack");
+      await connectWallet("walletconnect");
       setIsConnectDialogOpen(false);
       // No redirection - stay on current page
     } catch (error) {
-      console.error("Error connecting HashPack wallet:", error);
+      console.error("Error connecting with WalletConnect:", error);
     }
   };
   
@@ -94,17 +94,15 @@ export function WalletConnectHeader() {
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <Button 
-                      onClick={handleConnectHashpack}
+                      onClick={handleConnectWalletConnect}
                       className="w-full flex justify-center items-center gap-2"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                        <path d="M7 7h.01" />
-                        <path d="M17 7h.01" />
-                        <path d="M7 17h.01" />
-                        <path d="M17 17h.01" />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M6.04 8.67C9.99 4.83 16.23 4.83 20.18 8.67L20.67 9.14C20.82 9.29 20.82 9.54 20.67 9.69L19.05 11.27C18.98 11.34 18.86 11.34 18.79 11.27L18.13 10.63C15.24 7.83 10.98 7.83 8.09 10.63L7.38 11.32C7.31 11.39 7.19 11.39 7.12 11.32L5.5 9.74C5.35 9.59 5.35 9.34 5.5 9.19L6.04 8.67Z" fill="#3396FF"/>
+                        <path d="M22.44 6.49C27.73 11.63 27.73 19.69 22.44 24.83L22.43 24.84C22.36 24.9 22.26 24.91 22.18 24.86L19.75 22.5C19.61 22.35 19.61 22.11 19.75 21.95L21.44 20.3C24.69 17.11 24.69 11.9 21.44 8.71L19.73 7.04C19.59 6.89 19.59 6.65 19.73 6.49L21.51 4.76C21.53 4.74 21.56 4.72 21.59 4.71C21.65 4.68 21.71 4.68 21.77 4.69C21.83 4.71 21.89 4.75 21.93 4.8L22.44 6.49Z" fill="#3396FF"/>
+                        <path d="M7.71 15.44C10.61 12.65 14.86 12.65 17.76 15.44L18.14 15.81C18.29 15.95 18.29 16.2 18.14 16.35L16.53 17.92C16.45 17.99 16.33 17.99 16.26 17.92L15.71 17.39C13.87 15.62 11.6 15.62 9.76 17.39L3.33 23.61C3.26 23.68 3.14 23.68 3.07 23.61L1.45 22.04C1.31 21.89 1.31 21.64 1.45 21.49L7.71 15.44Z" fill="#3396FF"/>
                       </svg>
-                      Connect with HashPack
+                      Connect with WalletConnect
                     </Button>
                     <Button 
                       onClick={handleConnectBlade}

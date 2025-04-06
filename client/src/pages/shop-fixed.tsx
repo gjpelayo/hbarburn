@@ -176,7 +176,7 @@ export default function ShopPage() {
               <Button 
                 variant="default" 
                 size="sm" 
-                onClick={() => connectWallet("hashpack")}
+                onClick={() => connectWallet("walletconnect")}
               >
                 <Wallet className="mr-2 h-4 w-4" />
                 Connect Wallet

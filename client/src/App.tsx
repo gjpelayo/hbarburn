@@ -43,7 +43,10 @@ function Router() {
       <Route path="/session-test" component={SessionTest} />
       <Route path="/simple-session-test" component={SimpleSessionTest} />
       
-      {/* Admin Routes - All protected by ProtectedRoute component */}
+      {/* Admin Routes */}
+      {/* Admin Auth Route - Temporarily removed for wallet migration */}
+      
+      {/* Protected Admin Routes */}
       <Route path="/admin">
         {() => (
           <ProtectedRoute>
