@@ -19,11 +19,25 @@ import {
   disconnectBlade, 
   burnTokensWithBlade 
 } from "@/lib/blade";
+import {
+  connectHashpack,
+  disconnectHashpack,
+  burnTokensWithHashpack,
+  initializeHashConnect,
+  getHashpackConnectionState
+} from "@/lib/hashconnect";
 import { Token } from "@/types";
 import { useQuery } from "@tanstack/react-query";
+
+// Define the wallet connection result interface
+interface WalletConnectionResult {
+  success: boolean;
+  accountId?: string;
+  error?: string;
+}
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-type WalletType = "walletconnect" | "blade" | null;
+type WalletType = "walletconnect" | "blade" | "hashpack" | null;
 
 interface WalletContextType {
   isConnected: boolean;
@@ -31,7 +45,7 @@ interface WalletContextType {
   walletType: WalletType;
   tokens: Token[];
   isLoading: boolean;
-  connectWallet: (walletType: "walletconnect" | "blade") => Promise<boolean>;
+  connectWallet: (walletType: "walletconnect" | "blade" | "hashpack") => Promise<boolean>;
   disconnectWallet: () => void;
   burnTokens: (tokenId: string, amount: number) => Promise<string>;
   authenticateWithSignature: () => Promise<boolean>;
@@ -82,6 +96,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       try {
         // Initialize WalletConnect
         await initializeWalletConnect().catch(error => console.error("WalletConnect initialization error:", error));
+        
+        // Initialize HashConnect
+        await initializeHashConnect().catch(error => console.error("HashConnect initialization error:", error));
         
         // Do not auto-reconnect to avoid confusion with the test account
         // We'll let users explicitly connect their wallets
@@ -151,10 +168,10 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     initializeWallets();
   }, [toast]);
   
-  const connectWallet = async (type: "walletconnect" | "blade"): Promise<boolean> => {
+  const connectWallet = async (type: "walletconnect" | "blade" | "hashpack"): Promise<boolean> => {
     try {
       if (type === "walletconnect") {
-        const result = await connectWalletConnect();
+        const result = await connectWalletConnect() as WalletConnectionResult;
         
         if (result.success && result.accountId) {
           // Set local state
@@ -200,7 +217,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         }
       } 
       else if (type === "blade") {
-        const result = await connectBlade();
+        const result = await connectBlade() as WalletConnectionResult;
         
         if (result.success && result.accountId) {
           // Set local state
@@ -244,7 +261,53 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
           });
           return false;
         }
-      } 
+      }
+      else if (type === "hashpack") {
+        const result = await connectHashpack() as WalletConnectionResult;
+        
+        if (result.success && result.accountId) {
+          // Set local state
+          setAccountId(result.accountId);
+          setWalletType(type);
+          
+          try {
+            // Authenticate with the backend
+            await apiRequest('POST', '/api/auth/wallet', { 
+              accountId: result.accountId
+            });
+            
+            // Invalidate the admin user query so it refetches with new authentication
+            queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
+            
+            toast({
+              title: "Wallet Connected",
+              description: `Connected to HashPack (${result.accountId})`,
+            });
+            return true;
+          } catch (authError) {
+            console.error("Authentication error:", authError);
+            // Disconnect the wallet
+            await disconnectHashpack();
+            setAccountId(null);
+            setWalletType(null);
+            
+            toast({
+              title: "Authentication Failed",
+              description: "Could not authenticate with the server",
+              variant: "destructive",
+            });
+            return false;
+          }
+        } else {
+          // Handle connection failure
+          toast({
+            title: "Connection Failed",
+            description: result.error || "Could not connect to HashPack",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
       else {
         throw new Error("Unsupported wallet type");
       }
@@ -265,6 +328,8 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
         await disconnectWalletConnect();
       } else if (walletType === "blade") {
         await disconnectBlade();
+      } else if (walletType === "hashpack") {
+        await disconnectHashpack();
       }
       
       try {
@@ -316,6 +381,14 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       } else if (walletType === "blade") {
         // Call Blade's burn function
         const txId = await burnTokensWithBlade(tokenId, amount);
+        
+        // Refetch token balances after burn
+        await refetchTokens();
+        
+        return txId;
+      } else if (walletType === "hashpack") {
+        // Call HashPack's burn function
+        const txId = await burnTokensWithHashpack(tokenId, amount);
         
         // Refetch token balances after burn
         await refetchTokens();
