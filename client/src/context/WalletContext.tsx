@@ -14,11 +14,6 @@ import {
   getWalletConnectState,
   signAuthMessage
 } from "@/lib/walletconnect-v2";
-import { 
-  connectBlade, 
-  disconnectBlade, 
-  burnTokensWithBlade 
-} from "@/lib/blade";
 import { Token } from "@/types";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,7 +25,7 @@ interface WalletConnectionResult {
   error?: string;
 }
 
-type WalletType = "walletconnect" | "blade" | null;
+type WalletType = "walletconnect" | null;
 
 interface WalletContextType {
   isConnected: boolean;
@@ -38,7 +33,7 @@ interface WalletContextType {
   walletType: WalletType;
   tokens: Token[];
   isLoading: boolean;
-  connectWallet: (walletType: "walletconnect" | "blade") => Promise<boolean>;
+  connectWallet: (walletType: "walletconnect") => Promise<boolean>;
   disconnectWallet: () => void;
   burnTokens: (tokenId: string, amount: number) => Promise<string>;
   authenticateWithSignature: () => Promise<boolean>;
@@ -110,7 +105,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
             setAccountId(wcState.accountId);
             setWalletType("walletconnect");
             
-            // Get wallet name if available (HashPack, Blade, etc.)
+            // Get wallet name if available
             const walletName = wcState.walletName || "WalletConnect";
             
             toast({
@@ -123,35 +118,6 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
             console.error("Authentication error on auto-reconnect:", authError);
           }
         }
-        
-        // Try Blade as fallback
-        const bladeAccount = localStorage.getItem("blade_account");
-        if (bladeAccount) {
-          const reconnected = await connectBlade();
-          if (reconnected.success && reconnected.accountId) {
-            try {
-              // Authenticate with the backend
-              await apiRequest('POST', '/api/auth/wallet', { 
-                accountId: reconnected.accountId
-              });
-              
-              // Invalidate the admin user query so it refetches with new authentication
-              queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
-              
-              setAccountId(reconnected.accountId);
-              setWalletType("blade");
-              
-              toast({
-                title: "Wallet Reconnected",
-                description: `Connected to Blade (${reconnected.accountId})`,
-              });
-              
-              return;
-            } catch (authError) {
-              console.error("Authentication error on auto-reconnect:", authError);
-            }
-          }
-        }
         */
       } catch (error) {
         console.error("Wallet initialization failed:", error);
@@ -161,106 +127,55 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     initializeWallets();
   }, [toast]);
   
-  const connectWallet = async (type: "walletconnect" | "blade"): Promise<boolean> => {
+  const connectWallet = async (type: "walletconnect"): Promise<boolean> => {
     try {
-      if (type === "walletconnect") {
-        const result = await connectWalletConnect();
+      const result = await connectWalletConnect();
+      
+      if (result.success && result.accountId) {
+        // Set local state
+        setAccountId(result.accountId);
+        setWalletType(type);
         
-        if (result.success && result.accountId) {
-          // Set local state
-          setAccountId(result.accountId);
-          setWalletType(type);
+        try {
+          // Authenticate with the backend
+          await apiRequest('POST', '/api/auth/wallet', { 
+            accountId: result.accountId
+          });
           
-          try {
-            // Authenticate with the backend
-            await apiRequest('POST', '/api/auth/wallet', { 
-              accountId: result.accountId
-            });
-            
-            // Invalidate the admin user query so it refetches with new authentication
-            queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
-            
-            // Get the wallet name if available
-            const walletState = getWalletConnectState();
-            const walletName = walletState.walletName || "WalletConnect";
-            
-            toast({
-              title: "Wallet Connected",
-              description: `Connected to ${walletName} (${result.accountId})`,
-            });
-            return true;
-          } catch (authError) {
-            console.error("Authentication error:", authError);
-            // Disconnect the wallet
-            await disconnectWalletConnect();
-            setAccountId(null);
-            setWalletType(null);
-            
-            toast({
-              title: "Authentication Failed",
-              description: "Could not authenticate with the server",
-              variant: "destructive",
-            });
-            return false;
-          }
-        } else {
-          // Handle connection failure
+          // Invalidate the admin user query so it refetches with new authentication
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
+          
+          // Get the wallet name if available
+          const walletState = getWalletConnectState();
+          const walletName = walletState.walletName || "WalletConnect";
+          
           toast({
-            title: "Connection Failed",
-            description: result.error || "Could not connect to wallet",
+            title: "Wallet Connected",
+            description: `Connected to ${walletName} (${result.accountId})`,
+          });
+          return true;
+        } catch (authError) {
+          console.error("Authentication error:", authError);
+          // Disconnect the wallet
+          await disconnectWalletConnect();
+          setAccountId(null);
+          setWalletType(null);
+          
+          toast({
+            title: "Authentication Failed",
+            description: "Could not authenticate with the server",
             variant: "destructive",
           });
           return false;
         }
-      } 
-      else if (type === "blade") {
-        const result = await connectBlade() as WalletConnectionResult;
-        
-        if (result.success && result.accountId) {
-          // Set local state
-          setAccountId(result.accountId);
-          setWalletType(type);
-          
-          try {
-            // Authenticate with the backend
-            await apiRequest('POST', '/api/auth/wallet', { 
-              accountId: result.accountId
-            });
-            
-            // Invalidate the admin user query so it refetches with new authentication
-            queryClient.invalidateQueries({ queryKey: ['/api/admin/user'] });
-            
-            toast({
-              title: "Wallet Connected",
-              description: `Connected to Blade (${result.accountId})`,
-            });
-            return true;
-          } catch (authError) {
-            console.error("Authentication error:", authError);
-            // Disconnect the wallet
-            await disconnectBlade();
-            setAccountId(null);
-            setWalletType(null);
-            
-            toast({
-              title: "Authentication Failed",
-              description: "Could not authenticate with the server",
-              variant: "destructive",
-            });
-            return false;
-          }
-        } else {
-          // Handle connection failure
-          toast({
-            title: "Connection Failed",
-            description: result.error || "Could not connect to Blade",
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
-      else {
-        throw new Error("Unsupported wallet type");
+      } else {
+        // Handle connection failure
+        toast({
+          title: "Connection Failed",
+          description: (result as any).error || "Could not connect to wallet",
+          variant: "destructive",
+        });
+        return false;
       }
     } catch (error) {
       console.error("Wallet connection error:", error);
@@ -275,11 +190,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   
   const disconnectWallet = async () => {
     try {
-      if (walletType === "walletconnect") {
-        await disconnectWalletConnect();
-      } else if (walletType === "blade") {
-        await disconnectBlade();
-      }
+      await disconnectWalletConnect();
       
       try {
         // Logout from backend
@@ -319,25 +230,13 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      if (walletType === "walletconnect") {
-        // Call WalletConnect's burn function
-        const txId = await burnTokensWithWalletConnect(tokenId, amount);
-        
-        // Refetch token balances after burn
-        await refetchTokens();
-        
-        return txId;
-      } else if (walletType === "blade") {
-        // Call Blade's burn function
-        const txId = await burnTokensWithBlade(tokenId, amount);
-        
-        // Refetch token balances after burn
-        await refetchTokens();
-        
-        return txId;
-      } else {
-        throw new Error("Unsupported wallet type");
-      }
+      // Call WalletConnect's burn function
+      const txId = await burnTokensWithWalletConnect(tokenId, amount);
+      
+      // Refetch token balances after burn
+      await refetchTokens();
+      
+      return txId;
     } catch (error) {
       console.error("Token burn error:", error);
       if (error instanceof Error) {
@@ -348,7 +247,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // New authentication method using wallet signatures
+  // Authentication method using wallet signatures
   const authenticateWithSignature = async (): Promise<boolean> => {
     if (!accountId || !walletType) {
       toast({
@@ -366,25 +265,13 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       
       let signature: string | undefined;
       
-      if (walletType === "walletconnect") {
-        // Use WalletConnect to sign the message
-        try {
-          const signResult = await signAuthMessage(message);
-          signature = signResult.signature;
-        } catch (err) {
-          console.error("Error signing message with WalletConnect:", err);
-          throw new Error("Failed to sign the authentication message");
-        }
-      } else if (walletType === "blade") {
-        // TODO: Implement Blade signature functionality
-        toast({
-          title: "Not Implemented",
-          description: "Signature authentication not yet implemented for Blade",
-          variant: "destructive",
-        });
-        return false;
-      } else {
-        throw new Error("Unsupported wallet type");
+      // Use WalletConnect to sign the message
+      try {
+        const signResult = await signAuthMessage(message);
+        signature = signResult.signature;
+      } catch (err) {
+        console.error("Error signing message with WalletConnect:", err);
+        throw new Error("Failed to sign the authentication message");
       }
       
       if (!signature) {
